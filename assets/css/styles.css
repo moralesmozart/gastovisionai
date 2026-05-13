@@ -632,13 +632,56 @@ a {
   justify-content: center;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
   transition: transform 0.18s ease, background 0.18s ease;
-  z-index: 2;
+  z-index: 3;
 }
 .media__play:hover {
   transform: scale(1.06);
 }
 .media--playing .media__play {
   background: rgba(255, 255, 255, 0.7);
+}
+.media__play svg {
+  transition: transform 0.18s ease;
+}
+.media--playing .media__play svg {
+  transform: scale(0.85);
+}
+
+/* Ken Burns: when no real .mp4 exists for the dish we just gently zoom &
+ * pan the still photo so the play button still feels alive. The animation
+ * is intentionally slow (cinematic) and pauses by toggling the class. */
+@keyframes kenBurns {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  50% {
+    transform: scale(1.12) translate(-2%, -2%);
+  }
+  100% {
+    transform: scale(1) translate(0, 0);
+  }
+}
+.media--kenburns.media--playing .media__img {
+  animation: kenBurns 12s ease-in-out infinite;
+}
+.media--kenburns.media--playing::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 80% at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.18) 100%),
+    linear-gradient(180deg, transparent 60%, rgba(0, 0, 0, 0.25) 100%);
+  pointer-events: none;
+  z-index: 2;
+  animation: fadeIn 0.5s ease;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .card__body {
@@ -1094,13 +1137,22 @@ a {
   scroll-snap-align: start;
   overflow: hidden;
 }
+.reel__photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-color: #000;
+  animation: kenBurns 14s ease-in-out infinite;
+}
 .reel__video {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background: #000;
+  background: transparent;
+  z-index: 1;
 }
 .reel__info {
   position: absolute;

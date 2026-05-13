@@ -17,8 +17,7 @@ window.GV_DATA = {
       fr: "Cuisine espagnole, âme moderne",
       de: "Spanische Küche mit modernem Twist"
     },
-    hero:
-      "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=80",
+    hero: "assets/img/dishes/tomato-salad.jpg",
     accent: "#14B8A6"
   },
 
@@ -30,6 +29,14 @@ window.GV_DATA = {
     { id: "specials", icon: "✨" }
   ],
 
+  /* Each item references a local AI-generated photo at
+   *   assets/img/dishes/<id>.jpg
+   * For the "video" experience the app will:
+   *   1. Try to load assets/videos/<id>.mp4 (you drop your real Veo/Runway
+   *      MP4 there and it just works).
+   *   2. If that file doesn't exist, fall back to a cinematic Ken Burns
+   *      pan/zoom on the photo so the play button is always on-topic.
+   */
   items: [
     /* ---------- STARTERS ---------- */
     {
@@ -39,10 +46,6 @@ window.GV_DATA = {
       currency: "€",
       tags: ["chefPick"],
       allergens: ["gluten", "dairy", "eggs"],
-      image:
-        "https://images.unsplash.com/photo-1559847844-b0915a3800c6?auto=format&fit=crop&w=900&q=80",
-      video:
-        "https://assets.mixkit.co/videos/4756/4756-720.mp4",
       name: {
         en: "Iberian ham croquettes",
         es: "Croquetas de jamón ibérico",
@@ -70,10 +73,6 @@ window.GV_DATA = {
       currency: "€",
       tags: ["veggie"],
       allergens: [],
-      image:
-        "https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?auto=format&fit=crop&w=900&q=80",
-      video:
-        "https://assets.mixkit.co/videos/2786/2786-720.mp4",
       name: {
         en: "Heirloom tomato salad",
         es: "Ensalada de tomate de la huerta",
@@ -101,10 +100,6 @@ window.GV_DATA = {
       currency: "€",
       tags: [],
       allergens: ["gluten", "dairy"],
-      image:
-        "https://images.unsplash.com/photo-1599974579688-8dbdd335c77f?auto=format&fit=crop&w=900&q=80",
-      video:
-        "https://assets.mixkit.co/videos/4502/4502-720.mp4",
       name: {
         en: "Pulled pork quesadilla",
         es: "Quesadilla de pulled pork",
@@ -134,10 +129,6 @@ window.GV_DATA = {
       currency: "€",
       tags: ["chefPick"],
       allergens: ["gluten", "dairy"],
-      image:
-        "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=900&q=80",
-      video:
-        "https://assets.mixkit.co/videos/2786/2786-720.mp4",
       name: {
         en: "Prosciutto pizza",
         es: "Pizza prosciutto",
@@ -165,10 +156,6 @@ window.GV_DATA = {
       currency: "€",
       tags: [],
       allergens: [],
-      image:
-        "https://images.unsplash.com/photo-1546964124-0cce460f38ef?auto=format&fit=crop&w=900&q=80",
-      video:
-        "https://assets.mixkit.co/videos/4502/4502-720.mp4",
       name: {
         en: "45-day matured Angus",
         es: "Angus madurado 45 días",
@@ -196,10 +183,6 @@ window.GV_DATA = {
       currency: "€",
       tags: ["chefPick"],
       allergens: ["seafood"],
-      image:
-        "https://images.unsplash.com/photo-1694685367640-05d6624e57f1?auto=format&fit=crop&w=900&q=80",
-      video:
-        "https://assets.mixkit.co/videos/2786/2786-720.mp4",
       name: {
         en: "Seafood paella",
         es: "Paella de marisco",
@@ -229,10 +212,6 @@ window.GV_DATA = {
       currency: "€",
       tags: [],
       allergens: ["sulfites"],
-      image:
-        "https://images.pexels.com/photos/1170599/pexels-photo-1170599.jpeg?auto=compress&cs=tinysrgb&w=900",
-      video:
-        "https://assets.mixkit.co/videos/2786/2786-720.mp4",
       name: {
         en: "House vermouth",
         es: "Vermut de la casa",
@@ -260,10 +239,6 @@ window.GV_DATA = {
       currency: "€",
       tags: ["chefPick"],
       allergens: [],
-      image:
-        "https://images.pexels.com/photos/602750/pexels-photo-602750.jpeg?auto=compress&cs=tinysrgb&w=900",
-      video:
-        "https://assets.mixkit.co/videos/4502/4502-720.mp4",
       name: {
         en: "Smoked old fashioned",
         es: "Old fashioned ahumado",
@@ -293,10 +268,6 @@ window.GV_DATA = {
       currency: "€",
       tags: ["chefPick"],
       allergens: ["dairy", "eggs", "gluten"],
-      image:
-        "https://images.unsplash.com/photo-1565958011703-44f9829ba187?auto=format&fit=crop&w=900&q=80",
-      video:
-        "https://assets.mixkit.co/videos/2786/2786-720.mp4",
       name: {
         en: "Burnt Basque cheesecake",
         es: "Tarta de queso vasca",
@@ -324,10 +295,6 @@ window.GV_DATA = {
       currency: "€",
       tags: [],
       allergens: ["dairy", "eggs", "gluten"],
-      image:
-        "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=900&q=80",
-      video:
-        "https://assets.mixkit.co/videos/4502/4502-720.mp4",
       name: {
         en: "Chocolate coulant",
         es: "Coulant de chocolate",
@@ -357,10 +324,6 @@ window.GV_DATA = {
       currency: "€",
       tags: ["chefPick", "limited"],
       allergens: ["nuts", "gluten"],
-      image:
-        "https://images.unsplash.com/photo-1504544750208-dc0358e63f7f?auto=format&fit=crop&w=900&q=80",
-      video:
-        "https://assets.mixkit.co/videos/4502/4502-720.mp4",
       name: {
         en: "Mole tasting (3 sauces)",
         es: "Degustación de moles (3 salsas)",

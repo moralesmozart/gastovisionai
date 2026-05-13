@@ -14,7 +14,7 @@ This is **v1**: it ships the core diner experience and a post-meal feedback flow
 
 - **Welcome screen.** Hero image, swipeable category cards (Starters, Mains, Drinks, Desserts, Today's Specials).
 - **Categorized menu.** Sticky pill-tab navigation, photo + price + 2-line description per dish.
-- **"Tap to play" videos** on every card with a smooth swap to the static photo when paused.
+- **"Tap to play" videos** on every card. The app first tries `assets/videos/<dish-id>.mp4` — if that file doesn't exist, it falls back to a cinematic **Ken Burns** pan/zoom on the dish photo, so the play button is always on-topic. See `assets/videos/README.md` for prompts and recommended specs to generate real clips with Veo / Runway / Pika.
 - **Item detail page** with full description, allergens, favorites toggle, and "Add to my list".
 - **Vertical video reel** (`#/video`) — TikTok-style auto-playing dish reel, swipe up for the next one.
 - **Favorites + "My list"** persisted to `localStorage`, with a quantity selector and a "Call the waiter" CTA.

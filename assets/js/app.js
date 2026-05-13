@@ -155,13 +155,27 @@
     return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">${paths[name]}</svg>`;
   }
 
+  /* Resolves the image and (optional) video for a dish.
+   *
+   * Photo: assets/img/dishes/<id>.jpg (AI-generated, custom-shot per dish).
+   * Video: assets/videos/<id>.mp4. If you drop a real Veo/Runway clip in
+   *        that folder named after the dish id, the play button uses it.
+   *        Otherwise, "play" triggers a cinematic Ken Burns pan/zoom on
+   *        the photo so the experience is always on-topic.
+   */
+  function getPhotoUrl(item) {
+    return "assets/img/dishes/" + item.id + ".jpg";
+  }
+  function getVideoUrl(item) {
+    return "assets/videos/" + item.id + ".mp4";
+  }
+
   function videoOrImage(item, opts) {
     opts = opts || {};
     const wrap = el("div", { class: "media" + (opts.tall ? " media--tall" : "") });
 
-    /* If the photo fails to load (e.g. Unsplash photo ID got reassigned to
-     * something that's not food), gracefully fall back to a coloured gradient
-     * with the category emoji so the card still looks intentional. */
+    /* Coloured gradient + category emoji as a last-resort fallback if the
+     * dish photo itself fails to load. */
     const cat = (DATA.categories.find((c) => c.id === item.category) || {}).icon || "🍽";
     const fallback = el("div", {
       class: "media__fallback",
@@ -170,45 +184,87 @@
     });
     wrap.appendChild(fallback);
 
-    const img = el("img", { class: "media__img", src: item.image, alt: getName(item), loading: "lazy" });
-    img.addEventListener("error", () => {
-      img.classList.add("media__img--failed");
+    const img = el("img", {
+      class: "media__img",
+      src: getPhotoUrl(item),
+      alt: getName(item),
+      loading: "lazy"
     });
+    img.addEventListener("error", () => img.classList.add("media__img--failed"));
     wrap.appendChild(img);
 
-    if (item.video) {
-      const playBtn = el("button", {
-        class: "media__play",
-        type: "button",
-        "aria-label": "Play video",
-        html: makeIcon("play")
-      });
-      wrap.appendChild(playBtn);
+    /* Play button — always shown. Tries to load a real MP4 once; if it 404s,
+     * we silently switch this dish into Ken Burns mode for the rest of the
+     * session. */
+    const playBtn = el("button", {
+      class: "media__play",
+      type: "button",
+      "aria-label": "Play video",
+      html: makeIcon("play")
+    });
+    wrap.appendChild(playBtn);
 
-      let video = null;
-      playBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!video) {
-          video = el("video", {
-            class: "media__video",
-            src: item.video,
-            playsinline: "",
-            muted: true,
-            loop: true,
-            preload: "metadata"
-          });
-          wrap.appendChild(video);
-        }
+    /* Per-card state: 'unknown' | 'video' | 'kenburns', plus optional <video>. */
+    let mode = "unknown";
+    let video = null;
+
+    function startKenBurns() {
+      mode = "kenburns";
+      wrap.classList.add("media--playing", "media--kenburns");
+    }
+    function stopKenBurns() {
+      wrap.classList.remove("media--playing");
+    }
+
+    playBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (mode === "kenburns") {
+        wrap.classList.toggle("media--playing");
+        return;
+      }
+
+      if (mode === "video") {
         if (video.paused) {
-          video.play().catch(() => {});
+          video.play().catch(startKenBurns);
           wrap.classList.add("media--playing");
         } else {
           video.pause();
           wrap.classList.remove("media--playing");
         }
+        return;
+      }
+
+      /* mode === "unknown": first interaction. Try a real MP4. */
+      video = el("video", {
+        class: "media__video",
+        src: getVideoUrl(item),
+        playsinline: "",
+        muted: true,
+        loop: true,
+        preload: "metadata"
       });
-    }
+      let resolved = false;
+      const onReady = () => {
+        if (resolved) return;
+        resolved = true;
+        mode = "video";
+        wrap.appendChild(video);
+        video.play().catch(startKenBurns);
+        wrap.classList.add("media--playing");
+      };
+      const onFail = () => {
+        if (resolved) return;
+        resolved = true;
+        video = null;
+        startKenBurns();
+      };
+      video.addEventListener("loadeddata", onReady, { once: true });
+      video.addEventListener("error", onFail, { once: true });
+      /* Safety net for browsers that never fire either event in time. */
+      setTimeout(() => !resolved && onFail(), 1500);
+    });
 
     return wrap;
   }
@@ -349,17 +405,13 @@
     const carousel = el("div", { class: "carousel" });
     const track = el("div", { class: "carousel__track" });
 
+    /* One representative AI dish photo per category for the welcome cards. */
     const cardImages = {
-      starters:
-        "https://images.unsplash.com/photo-1559847844-b0915a3800c6?auto=format&fit=crop&w=600&q=80",
-      mains:
-        "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=600&q=80",
-      drinks:
-        "https://images.pexels.com/photos/1170599/pexels-photo-1170599.jpeg?auto=compress&cs=tinysrgb&w=600",
-      desserts:
-        "https://images.unsplash.com/photo-1565958011703-44f9829ba187?auto=format&fit=crop&w=600&q=80",
-      specials:
-        "https://images.unsplash.com/photo-1504544750208-dc0358e63f7f?auto=format&fit=crop&w=600&q=80"
+      starters: "assets/img/dishes/ham-croquettes.jpg",
+      mains: "assets/img/dishes/prosciutto-pizza.jpg",
+      drinks: "assets/img/dishes/smoked-old-fashioned.jpg",
+      desserts: "assets/img/dishes/burnt-cheesecake.jpg",
+      specials: "assets/img/dishes/mole-tasting.jpg"
     };
 
     DATA.categories.forEach((c, i) => {
@@ -606,7 +658,7 @@
 
       const row = el("div", { class: "cartrow" });
       row.appendChild(
-        el("img", { class: "cartrow__img", src: item.image, alt: getName(item) })
+        el("img", { class: "cartrow__img", src: getPhotoUrl(item), alt: getName(item) })
       );
       const info = el("div", { class: "cartrow__info" });
       info.appendChild(el("h3", { class: "cartrow__title", text: getName(item) }));
@@ -687,15 +739,25 @@
     const reel = el("div", { class: "reel" });
     DATA.items.forEach((item) => {
       const slide = el("article", { class: "reel__slide" });
+
+      /* Cinematic Ken Burns photo as the base layer (always present). */
+      const photo = el("div", {
+        class: "reel__photo",
+        style: "background-image:url('" + getPhotoUrl(item) + "')"
+      });
+      slide.appendChild(photo);
+
+      /* Optional real video on top — only added if the file loads. */
       const v = el("video", {
         class: "reel__video",
-        src: item.video,
-        poster: item.image,
+        src: getVideoUrl(item),
+        poster: getPhotoUrl(item),
         playsinline: "",
         muted: true,
         loop: true,
         preload: "metadata"
       });
+      v.addEventListener("error", () => v.remove(), { once: true });
       slide.appendChild(v);
 
       const info = el("div", { class: "reel__info" });
@@ -871,7 +933,7 @@
       tile.appendChild(
         el("div", {
           class: "tile__img",
-          style: "background-image:url('" + item.image + "')"
+          style: "background-image:url('" + getPhotoUrl(item) + "')"
         })
       );
       tile.appendChild(el("div", { class: "tile__shade" }));
