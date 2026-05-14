@@ -130,6 +130,30 @@
     return canvas.toDataURL("image/jpeg", quality);
   }
 
+  function dataUrlToImage(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("bad image"));
+      img.src = dataUrl;
+    });
+  }
+
+  /* Deep-clone draft and recompress every data-URL photo for a smaller ?gv_d= payload. */
+  async function draftWithPhotosResized(draft, maxDim, quality) {
+    const d = JSON.parse(JSON.stringify(draft));
+    const items = d.items || [];
+    for (let i = 0; i < items.length; i++) {
+      const url = items[i].photoUrl;
+      if (!url || typeof url !== "string" || !url.startsWith("data:image")) continue;
+      try {
+        const img = await dataUrlToImage(url);
+        items[i].photoUrl = compressImage(img, maxDim, quality);
+      } catch (_) {}
+    }
+    return d;
+  }
+
   async function fileToCompressedDataUrl(file, maxDim, quality) {
     const img = await fileToImage(file);
     return compressImage(img, maxDim || PHOTO_MAX_DIM, quality || PHOTO_QUALITY);
@@ -407,28 +431,78 @@
    * URLSearchParams (+ → space). If the result is too long for a comfortable
    * QR scan, persist to localStorage instead and return a same-device-only URL. */
   async function publishDemo(draft) {
-    const data = draftToData(draft);
-    const json = JSON.stringify(data);
+    const LZ = await loadLZString();
+    const path = location.pathname.replace(/\/$/, "/");
 
-    /* Try URL-stuffed mode first (cross-device). */
-    try {
-      const LZ = await loadLZString();
-      const compressed = LZ.compressToEncodedURIComponent(json);
-      const path = location.pathname.replace(/\/$/, "/");
+    function encodeUrlPayload(data) {
+      const compressed = LZ.compressToEncodedURIComponent(JSON.stringify(data));
       const baseUrl =
         location.origin +
         path +
         "?gv_d=" +
         encodeURIComponent(compressed) +
         "#/demo/v";
-      if (baseUrl.length <= MAX_QR_URL_LENGTH) {
-        return { url: baseUrl, mode: "url", size: baseUrl.length };
+      return { baseUrl, len: baseUrl.length };
+    }
+
+    const shrinkSteps = [
+      [PHOTO_FOR_URL_MAX_DIM, PHOTO_FOR_URL_QUALITY],
+      [520, 0.48],
+      [440, 0.42],
+      [380, 0.37],
+      [320, 0.33],
+      [280, 0.29],
+      [240, 0.26],
+      [200, 0.23],
+      [180, 0.2]
+    ];
+
+    /* Try URL-stuffed mode (cross-device): start as-is, then smaller photos. */
+    try {
+      for (let s = 0; s < shrinkSteps.length; s++) {
+        const [dim, q] = shrinkSteps[s];
+        const pubDraft =
+          s === 0 ? draft : await draftWithPhotosResized(draft, dim, q);
+        const data = draftToData(pubDraft);
+        const { baseUrl, len } = encodeUrlPayload(data);
+        if (len <= MAX_QR_URL_LENGTH) {
+          return {
+            url: baseUrl,
+            mode: "url",
+            size: len,
+            photosReduced: s > 0,
+            photosReducedNote:
+              s > 0
+                ? "Photos were compressed so the QR link fits every phone."
+                : ""
+          };
+        }
+      }
+
+      /* Last resort for URL mode: menu text only (no photos in the link). */
+      const textOnly = JSON.parse(JSON.stringify(draft));
+      (textOnly.items || []).forEach((it) => {
+        it.photoUrl = null;
+      });
+      const dataNoPhotos = draftToData(textOnly);
+      const { baseUrl, len } = encodeUrlPayload(dataNoPhotos);
+      if (len <= MAX_QR_URL_LENGTH) {
+        return {
+          url: baseUrl,
+          mode: "url",
+          size: len,
+          photosReduced: true,
+          photosStrippedForUrl: true,
+          photosReducedNote:
+            "Photos are not in this link (too many dishes for one QR). The menu still opens; add photos again on the owner's device if you need them."
+        };
       }
     } catch (_) {
       /* Fall through to local mode. */
     }
 
-    /* Fallback: device-local. */
+    /* Fallback: device-local (full payload in localStorage). */
+    const data = draftToData(draft);
     const id = uid();
     const map = GV.loadJson(STORAGE_LOCAL_DEMOS, {});
     map[id] = data;
@@ -1326,9 +1400,20 @@
     });
     banner.innerHTML =
       published.mode === "url"
-        ? "<strong>Live!</strong> Anyone can scan this QR to open your demo on any phone."
+        ? published.photosStrippedForUrl
+          ? "<strong>Live!</strong> This QR opens the full menu on any phone. Photos were left out so the link fits in the code — add them again on the owner's device if you want."
+          : "<strong>Live!</strong> Anyone can scan this QR to open your demo on any phone."
         : "<strong>Demo ready.</strong> The menu is too big for a cross-device QR. Hand the device to the owner, or remove some photos to enable cross-device sharing.";
     container.appendChild(banner);
+
+    if (published.mode === "url" && published.photosReducedNote && !published.photosStrippedForUrl) {
+      container.appendChild(
+        el("p", {
+          class: "demo-launch-banner-note",
+          text: published.photosReducedNote
+        })
+      );
+    }
 
     const qrWrap = el("div", { class: "demo-qr" });
     const canvas = el("canvas", { class: "demo-qr__canvas" });
