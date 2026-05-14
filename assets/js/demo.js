@@ -143,25 +143,136 @@
   function parseMenuText(text) {
     if (!text) return [];
 
-    /* A price is always our anchor for "this line ends an item title". */
-    const priceRe =
-      /([€$£])\s?(\d{1,3}(?:[.,]\d{2}))|(\d{1,3}(?:[.,]\d{2}))\s?(€|EUR|USD|\$|£)/i;
+    /* Older regex required two decimals (14.00) and missed (14€), 14€, 9,5€ —
+     * that collapsed whole menus into a single "dish". */
+    function rangesOverlap(a, b) {
+      return !(a.end <= b.start || b.end <= a.start);
+    }
+
+    function pushPriceIfClear(out, start, end, price, currency) {
+      if (isNaN(price) || price <= 0 || price > 499) return;
+      const cand = { start, end, price, currency };
+      if (out.some((x) => rangesOverlap(x, cand))) return;
+      out.push(cand);
+    }
+
+    function pushStandaloneIfClear(out, start, end, price, currency, line) {
+      if (isNaN(price) || price <= 0 || price > 499) return;
+      if (!/[A-Za-z\u00C0-\u024F]/.test(line)) return;
+      const cand = { start, end, price, currency };
+      if (out.some((x) => rangesOverlap(x, cand))) return;
+      out.push(cand);
+    }
+
+    /* Printed menus often omit the € in OCR, or glue every row into one line.
+     * We merge explicit currency hits with standalone numbers that look like prices. */
+    function findAllPriceMatches(line) {
+      const re =
+        /\(\s*(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:€|EUR)\s*\)|(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:€|EUR)\b|(?:€|EUR)\s*(\d{1,3}(?:[.,]\d{1,2})?)|(\d{1,3}(?:[.,]\d{1,2})?)\s*(USD)\b|(\d{1,3}(?:[.,]\d{1,2})?)\s*(\$)|(\$)\s*(\d{1,3}(?:[.,]\d{1,2})?)|([£])\s*(\d{1,3}(?:[.,]\d{1,2})?)/gi;
+      const out = [];
+      let m;
+      while ((m = re.exec(line)) !== null) {
+        let priceStr = "";
+        let currency = "€";
+        if (m[1]) {
+          priceStr = m[1];
+        } else if (m[2]) {
+          priceStr = m[2];
+        } else if (m[3]) {
+          priceStr = m[3];
+        } else if (m[4] && m[5]) {
+          priceStr = m[4];
+          currency = "$";
+        } else if (m[6] && m[7]) {
+          priceStr = m[6];
+          currency = "$";
+        } else if (m[8] && m[9]) {
+          priceStr = m[9];
+          currency = "$";
+        } else if (m[10] && m[11]) {
+          priceStr = m[11];
+          currency = "£";
+        }
+        const price = parseFloat(String(priceStr).replace(",", "."));
+        pushPriceIfClear(out, m.index, m.index + m[0].length, price, currency);
+      }
+
+      /* Trailing "… 12,50" / "… 9" with no currency (very common after OCR). */
+      const trail = line.match(/(\d{1,3}(?:[.,]\d{1,2})?)\s*$/);
+      if (trail) {
+        const raw = trail[1];
+        const price = parseFloat(String(raw).replace(",", "."));
+        const start = line.length - trail[0].length;
+        pushStandaloneIfClear(out, start, line.length, price, "€", line);
+      }
+
+      /* Same line, multiple dishes: "Ceviche 14 Lomo saltado 22" — price
+       * followed by a word that looks like a new dish name (≥3 letters). */
+      const midRe =
+        /(?<=[A-Za-z\u00C0-\u024f\)]\s)(\d{1,3}(?:[.,]\d{1,2})?)\s+(?=[A-Za-z\u00C0-\u024F\u00f1\u00d1]{3,})/g;
+      while ((m = midRe.exec(line)) !== null) {
+        const price = parseFloat(String(m[1]).replace(",", "."));
+        pushStandaloneIfClear(out, m.index, m.index + m[0].length, price, "€", line);
+      }
+
+      out.sort((a, b) => a.start - b.start);
+      return out;
+    }
+
+    function expandPhysicalLine(line) {
+      const matches = findAllPriceMatches(line);
+      const parts = [];
+      if (!matches.length) {
+        parts.push({ kind: "noPrice", text: line });
+        return parts;
+      }
+      let prev = 0;
+      matches.forEach((match) => {
+        const slice = line.slice(prev, match.end).trim();
+        if (slice) parts.push({ kind: "withPrice", text: slice });
+        prev = match.end;
+      });
+      const rest = line.slice(prev).trim();
+      if (rest) parts.push({ kind: "noPrice", text: rest });
+      return parts;
+    }
+
+    function dishFromPricedSegment(segment) {
+      const matches = findAllPriceMatches(segment);
+      if (!matches.length) return null;
+      const last = matches[matches.length - 1];
+      const title = segment
+        .slice(0, last.start)
+        .replace(/[:\-–—•·\s]+$/u, "")
+        .trim();
+      return {
+        title: title || "Untitled",
+        price: last.price,
+        currency: last.currency
+      };
+    }
 
     const lines = text
       .split(/\r?\n/)
       .map((l) => l.replace(/\s+/g, " ").trim())
       .filter((l) => l.length > 1);
 
+    const parts = [];
+    lines.forEach((line) => {
+      expandPhysicalLine(line).forEach((p) => parts.push(p));
+    });
+
     const items = [];
+    const lang = I18N.get() || "en";
     let pending = { title: "", description: "", price: null, currency: "€" };
 
     function flush() {
-      if (pending.title || pending.description) {
+      if (pending.title || pending.description || pending.price != null) {
         items.push({
           id: uid(),
           category: "mains",
-          title: { [I18N.get() || "en"]: pending.title || "Untitled" },
-          description: { [I18N.get() || "en"]: pending.description || "" },
+          title: { [lang]: pending.title || "Untitled" },
+          description: { [lang]: pending.description || "" },
           price: pending.price != null ? pending.price : 0,
           currency: pending.currency || "€",
           tags: [],
@@ -172,37 +283,43 @@
       pending = { title: "", description: "", price: null, currency: "€" };
     }
 
-    lines.forEach((line) => {
-      const m = line.match(priceRe);
-      if (m) {
-        const priceStr = (m[2] || m[3] || "").replace(",", ".");
-        const price = parseFloat(priceStr);
-        const currency = m[1] || m[4] || "€";
-        const titlePart = line.replace(priceRe, "").replace(/[.…\-_•]+$/, "").trim();
-        if (titlePart) {
-          if (!pending.title) pending.title = titlePart;
-          else pending.description = (pending.description + " " + titlePart).trim();
+    parts.forEach((part) => {
+      if (part.kind === "noPrice") {
+        const t = part.text;
+        if (pending.title || pending.price != null) {
+          pending.description = (pending.description + " " + t).trim();
+        } else if (items.length) {
+          const last = items[items.length - 1];
+          last.description[lang] = ((last.description[lang] || "") + " " + t).trim();
+        } else {
+          pending.title = t;
         }
-        if (!isNaN(price)) pending.price = price;
-        pending.currency = currency.replace(/EUR|USD/i, (s) =>
-          s.toUpperCase() === "EUR" ? "€" : "$"
-        );
-        flush();
         return;
       }
 
-      if (!pending.title) {
-        pending.title = line;
+      const d = dishFromPricedSegment(part.text);
+      if (!d) return;
+
+      const headerOnly =
+        pending.title &&
+        pending.price == null &&
+        !pending.description;
+
+      if (headerOnly) {
+        pending.title = pending.title + " — " + d.title;
+        pending.price = d.price;
+        pending.currency = d.currency;
       } else {
-        pending.description = (pending.description + " " + line).trim();
+        flush();
+        pending.title = d.title;
+        pending.price = d.price;
+        pending.currency = d.currency;
       }
     });
     flush();
 
     /* Drop obvious garbage — single-letter items, very short noise. */
-    return items.filter(
-      (it) => (it.title[I18N.get() || "en"] || "").length >= 2
-    );
+    return items.filter((it) => (it.title[lang] || "").length >= 2);
   }
 
   /* ------------------ Demo → DATA shape converter ------------------- */
