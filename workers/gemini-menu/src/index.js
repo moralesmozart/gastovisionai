@@ -6,7 +6,7 @@
  * Vars:    ALLOWED_ORIGINS (optional, comma-separated), GEMINI_MODEL (optional)
  */
 
-const DEFAULT_MODEL = "gemini-2.0-flash";
+const DEFAULT_MODEL = "gemini-1.5-flash";
 
 const MENU_PROMPT = `You are digitizing a restaurant menu from a photograph.
 
