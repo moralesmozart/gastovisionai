@@ -498,7 +498,7 @@
     /* Items grid */
     const grid = el("div", { class: "grid" });
     DATA.items
-      .filter((it) => it.category === cat)
+      .filter((it) => it.category === cat && !it.hidden)
       .forEach((it) => grid.appendChild(itemCard(it)));
 
     if (!grid.children.length) {
@@ -511,7 +511,7 @@
 
   function renderItem(id) {
     const item = DATA.items.find((it) => it.id === id);
-    if (!item) {
+    if (!item || item.hidden) {
       location.hash = "#/menu";
       return;
     }
@@ -612,7 +612,7 @@
       ])
     );
 
-    const items = DATA.items.filter((it) => isFavorite(it.id));
+    const items = DATA.items.filter((it) => isFavorite(it.id) && !it.hidden);
     if (items.length === 0) {
       wrap.appendChild(
         el("div", { class: "empty empty--lg" }, [
@@ -657,7 +657,7 @@
 
     STATE.cart.forEach((entry) => {
       const item = DATA.items.find((it) => it.id === entry.id);
-      if (!item) return;
+      if (!item || item.hidden) return;
       total += item.price * entry.qty;
 
       const row = el("div", { class: "cartrow" });
@@ -741,7 +741,7 @@
     );
 
     const reel = el("div", { class: "reel" });
-    DATA.items.forEach((item) => {
+    DATA.items.filter((it) => !it.hidden).forEach((item) => {
       const slide = el("article", { class: "reel__slide" });
 
       /* Cinematic Ken Burns photo as the base layer (always present). */
@@ -1205,6 +1205,7 @@
   }
 
   function route() {
+    logGuestVisitForAnalytics();
     const hash = location.hash || "#/";
     const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
     window.scrollTo(0, 0);
@@ -1227,6 +1228,21 @@
     if (parts[0] === "video") return renderVideoFeed();
     if (parts[0] === "feedback") return renderFeedback(parts[1]);
     return renderWelcome();
+  }
+
+  /* Last hash we logged for analytics (avoid double-count on I18N re-render). */
+  let _analyticsLastHash = null;
+
+  function logGuestVisitForAnalytics() {
+    try {
+      const h = location.hash || "#/";
+      if (h === _analyticsLastHash) return;
+      _analyticsLastHash = h;
+      if (h.startsWith("#/owner") || h.startsWith("#/demo")) return;
+      const log = loadJson("gv.analytics.log", []);
+      log.push({ d: new Date().toISOString().slice(0, 10), t: Date.now() });
+      saveJson("gv.analytics.log", log.slice(-4000));
+    } catch (_) {}
   }
 
   /* ------------------------- Language picker UI --------------------- */
@@ -1302,6 +1318,18 @@
       Object.assign(DATA, JSON.parse(JSON.stringify(ORIGINAL_DATA)));
       route();
     },
+    /** Remove owner-saved overrides and reload bundled menu from disk snapshot. */
+    restoreShippedMenu() {
+      try {
+        localStorage.removeItem("gv.owner.editedData");
+      } catch (_) {}
+      Object.keys(DATA).forEach((k) => delete DATA[k]);
+      Object.assign(DATA, JSON.parse(JSON.stringify(ORIGINAL_DATA)));
+      route();
+    },
+    persistOwnerMenu() {
+      saveJson("gv.owner.editedData", JSON.parse(JSON.stringify(DATA)));
+    },
 
     /* Item helpers */
     getName,
@@ -1333,6 +1361,12 @@
   /* -------------------------------- Boot ----------------------------- */
 
   function boot() {
+    /* Owner-saved menu overrides the bundled sample (same shape as GV_DATA). */
+    const ownerSaved = loadJson("gv.owner.editedData", null);
+    if (ownerSaved && Array.isArray(ownerSaved.items)) {
+      Object.keys(DATA).forEach((k) => delete DATA[k]);
+      Object.assign(DATA, ownerSaved);
+    }
     I18N.set(I18N.detect());
     setupLanguagePicker();
     updateCartCount();

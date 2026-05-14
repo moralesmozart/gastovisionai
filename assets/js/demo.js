@@ -8,11 +8,12 @@
  *
  * Storage strategy (no backend, fits in GitHub Pages):
  *   - Draft lives in localStorage under "gv.demo.draft".
- *   - Publish encodes the entire demo (LZ-compressed JSON) into the URL hash.
- *     For text-only menus this fits comfortably and the QR works on any
- *     phone (cross-device). When too big to fit (lots of photos), we fall
- *     back to "device-local" mode: data stays in localStorage and the QR
- *     only works on this device. The UI tells the user clearly.
+ *   - Publish encodes the entire demo (LZ-compressed JSON) into the page
+ *     query string as ?gv_d=…#/demo/v (not raw ?d= inside the hash).
+ *     Reason: URLSearchParams treats "+" as a space; LZ output can contain
+ *     "+", which used to corrupt payloads and show "link corrupted".
+ *     encodeURIComponent on publish + gv_d in location.search fixes that.
+ *     Legacy #/demo/v?d=… links still load when possible.
  *
  * The whole module hangs off window.GV (set by app.js).
  */
@@ -272,9 +273,10 @@
 
   /* ------------------ Publish: encode into URL ---------------------- */
 
-  /* Serialize a published demo as ?d=<lz-compressed-json> in the URL hash.
-   * If the result is too long for a comfortable QR scan, persist to
-   * localStorage instead and return a same-device-only URL. */
+  /* Serialize a published demo as ?gv_d=<encodeURIComponent(compressed)>#/demo/v
+   * so "+" and other characters in the LZ payload are not mangled by
+   * URLSearchParams (+ → space). If the result is too long for a comfortable
+   * QR scan, persist to localStorage instead and return a same-device-only URL. */
   async function publishDemo(draft) {
     const data = draftToData(draft);
     const json = JSON.stringify(data);
@@ -283,11 +285,13 @@
     try {
       const LZ = await loadLZString();
       const compressed = LZ.compressToEncodedURIComponent(json);
+      const path = location.pathname.replace(/\/$/, "/");
       const baseUrl =
         location.origin +
-        location.pathname.replace(/\/$/, "/") +
-        "#/demo/v?d=" +
-        compressed;
+        path +
+        "?gv_d=" +
+        encodeURIComponent(compressed) +
+        "#/demo/v";
       if (baseUrl.length <= MAX_QR_URL_LENGTH) {
         return { url: baseUrl, mode: "url", size: baseUrl.length };
       }
@@ -314,42 +318,52 @@
 
   async function loadPublishedFromHash(rest) {
     if (_applyingDemo) return;
-    /* rest looks like ["v", "abc123"] or ["v"] with ?d=… in location.hash */
-    const sub = rest[1];
-    if (sub && sub !== "v") {
+
+    /* 1) Primary: ?gv_d=…#/demo/v (payload is encodeURIComponent-safe). */
+    let compressed = new URLSearchParams(location.search).get("gv_d");
+
+    /* 2) Legacy: #/demo/v?d=… (URLSearchParams turned "+" into spaces — we heal below). */
+    if (!compressed) {
+      const hash = location.hash || "";
+      const q = hash.indexOf("?");
+      if (q !== -1) {
+        compressed = new URLSearchParams(hash.slice(q + 1)).get("d");
+      }
+    }
+
+    if (compressed) {
+      try {
+        const LZ = await loadLZString();
+        let json = LZ.decompressFromEncodedURIComponent(compressed);
+        if (!json && / /.test(compressed)) {
+          json = LZ.decompressFromEncodedURIComponent(compressed.replace(/ /g, "+"));
+        }
+        if (!json) throw new Error("decompress failed");
+        const data = JSON.parse(json);
+        applyDemoData(data);
+      } catch (err) {
+        renderError("Couldn't open this demo. The link looks corrupted.");
+      }
+      return;
+    }
+
+    /* 3) Device-local: #/demo/v/<id> (no query payload). */
+    const localId =
+      rest[1] === "v" && rest[2] ? String(rest[2]).split("?")[0] : "";
+    if (localId) {
       const map = GV.loadJson(STORAGE_LOCAL_DEMOS, {});
-      const data = map[sub];
-      if (!data) {
-        renderError(
-          "This demo was created on another device.\nAsk the salesperson to show it to you, or create your own."
-        );
+      const data = map[localId];
+      if (data) {
+        applyDemoData(data);
         return;
       }
-      applyDemoData(data);
+      renderError(
+        "This demo was created on another device.\nAsk the salesperson to show it to you, or create your own."
+      );
       return;
     }
-    /* Inline ?d=<...> form. */
-    const hash = location.hash;
-    const q = hash.indexOf("?");
-    if (q === -1) {
-      renderError("This demo link is missing its data.");
-      return;
-    }
-    const params = new URLSearchParams(hash.slice(q + 1));
-    const compressed = params.get("d");
-    if (!compressed) {
-      renderError("This demo link is missing its data.");
-      return;
-    }
-    try {
-      const LZ = await loadLZString();
-      const json = LZ.decompressFromEncodedURIComponent(compressed);
-      if (!json) throw new Error("decompress failed");
-      const data = JSON.parse(json);
-      applyDemoData(data);
-    } catch (err) {
-      renderError("Couldn't open this demo. The link looks corrupted.");
-    }
+
+    renderError("This demo link is missing its data.");
   }
 
   function applyDemoData(data) {
