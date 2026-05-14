@@ -8,7 +8,7 @@
 #
 # Optional dashboard / wrangler vars:
 #   ALLOWED_ORIGINS = https://youruser.github.io,https://www.yourdomain.com
-#   GEMINI_MODEL    = gemini-2.5-flash   (optional; default in code is gemini-2.0-flash)
+#   GEMINI_MODEL    = gemini-2.5-flash   (optional; worker also tries flash-lite variants)
 
 name = "gastovision-gemini-menu"
 main = "src/index.js"

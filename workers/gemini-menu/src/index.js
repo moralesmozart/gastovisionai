@@ -6,7 +6,13 @@
  * Vars:    ALLOWED_ORIGINS (optional), GEMINI_MODEL (optional)
  */
 
-const DEFAULT_MODEL = "gemini-2.0-flash";
+/* Tried in order after GEMINI_MODEL (env). On 404/429 we try the next id — quotas differ per model. */
+const MODEL_FALLBACKS = [
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash"
+];
 
 const STRUCTURE_PROMPT = `You receive noisy OCR text from a restaurant menu (possible column bleed, typos, bullets, multiple languages).
 
@@ -124,15 +130,13 @@ export default {
       return json({ error: "Missing or too-short text (expected OCR output)." }, 400, request, env);
     }
 
-    const ocr = rawText.trim().slice(0, 80000);
+    const ocr = rawText.trim().slice(0, 45000);
     const lang = typeof body.lang === "string" ? body.lang : "en";
 
     const configured = (env.GEMINI_MODEL || "").trim();
-    const modelCandidates = [
-      configured,
-      DEFAULT_MODEL,
-      "gemini-2.5-flash"
-    ].filter((m, i, arr) => m && arr.indexOf(m) === i);
+    const modelCandidates = [configured, ...MODEL_FALLBACKS].filter(
+      (m, i, arr) => m && arr.indexOf(m) === i
+    );
 
     const userMessage = `${STRUCTURE_PROMPT}
 
@@ -180,15 +184,19 @@ Return one JSON array only.`;
 
       if (gemRes.ok) break;
 
-      lastDetail = gemJson.error?.message || gemText.slice(0, 300);
-      if (gemRes.status !== 404) {
+      lastDetail = gemJson.error?.message || gemText.slice(0, 400);
+      const tryNext = gemRes.status === 404 || gemRes.status === 429;
+      if (!tryNext) {
         return json({ error: "Gemini HTTP " + gemRes.status, detail: lastDetail }, 502, request, env);
       }
     }
 
     if (!gemRes.ok) {
       return json(
-        { error: "Gemini HTTP 404 (no working model in list).", detail: lastDetail },
+        {
+          error: "Gemini HTTP " + gemRes.status + " (all listed models failed).",
+          detail: lastDetail
+        },
         502,
         request,
         env

@@ -151,7 +151,7 @@
     const endpoint = String(GEMINI_MENU_URL || "").trim();
     if (!endpoint) throw new Error("no GEMINI_MENU_URL");
 
-    const text = String(ocrText || "").trim().slice(0, 80000);
+    const text = String(ocrText || "").trim().slice(0, 45000);
     if (text.length < 8) throw new Error("empty OCR text");
 
     const res = await fetch(endpoint, {
