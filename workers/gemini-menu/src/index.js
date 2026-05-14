@@ -6,7 +6,7 @@
  * Vars:    ALLOWED_ORIGINS (optional), GEMINI_MODEL (optional)
  */
 
-const DEFAULT_MODEL = "gemini-1.5-flash";
+const DEFAULT_MODEL = "gemini-2.0-flash";
 
 const STRUCTURE_PROMPT = `You receive noisy OCR text from a restaurant menu (possible column bleed, typos, bullets, multiple languages).
 
@@ -127,8 +127,12 @@ export default {
     const ocr = rawText.trim().slice(0, 80000);
     const lang = typeof body.lang === "string" ? body.lang : "en";
 
-    const model = (env.GEMINI_MODEL || DEFAULT_MODEL).trim();
-    const gemUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    const configured = (env.GEMINI_MODEL || "").trim();
+    const modelCandidates = [
+      configured,
+      DEFAULT_MODEL,
+      "gemini-2.5-flash"
+    ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
     const userMessage = `${STRUCTURE_PROMPT}
 
@@ -141,36 +145,54 @@ ${ocr}
 
 Return one JSON array only.`;
 
-    const gemRes = await fetch(gemUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": key
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: userMessage }]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 8192
-        }
-      })
-    });
+    let gemRes;
+    let gemText = "";
+    let gemJson = null;
+    let lastDetail = "";
 
-    const gemText = await gemRes.text();
-    let gemJson;
-    try {
-      gemJson = JSON.parse(gemText);
-    } catch (_) {
-      return json({ error: "Gemini returned non-JSON.", detail: gemText.slice(0, 200) }, 502, request, env);
+    for (const model of modelCandidates) {
+      const gemUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+      gemRes = await fetch(gemUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": key
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: userMessage }]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 8192
+          }
+        })
+      });
+
+      gemText = await gemRes.text();
+      try {
+        gemJson = JSON.parse(gemText);
+      } catch (_) {
+        return json({ error: "Gemini returned non-JSON.", detail: gemText.slice(0, 200) }, 502, request, env);
+      }
+
+      if (gemRes.ok) break;
+
+      lastDetail = gemJson.error?.message || gemText.slice(0, 300);
+      if (gemRes.status !== 404) {
+        return json({ error: "Gemini HTTP " + gemRes.status, detail: lastDetail }, 502, request, env);
+      }
     }
 
     if (!gemRes.ok) {
-      const msg = gemJson.error?.message || gemText.slice(0, 300);
-      return json({ error: "Gemini HTTP " + gemRes.status, detail: msg }, 502, request, env);
+      return json(
+        { error: "Gemini HTTP 404 (no working model in list).", detail: lastDetail },
+        502,
+        request,
+        env
+      );
     }
 
     const parts = gemJson.candidates?.[0]?.content?.parts || [];
