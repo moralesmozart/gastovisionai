@@ -1,0 +1,15 @@
+# Cloudflare Worker — proxies menu images to Google Gemini (API key stays here, not in the browser).
+#
+#   cd workers/gemini-menu
+#   npm i -g wrangler   # or use npx wrangler
+#   wrangler login
+#   wrangler secret put GEMINI_API_KEY
+#   wrangler deploy
+#
+# Optional dashboard / wrangler vars:
+#   ALLOWED_ORIGINS = https://youruser.github.io,https://www.yourdomain.com
+#   GEMINI_MODEL    = gemini-2.0-flash   (override if Google renames models)
+
+name = "gastovision-gemini-menu"
+main = "src/index.js"
+compatibility_date = "2025-01-01"

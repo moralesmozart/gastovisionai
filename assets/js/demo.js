@@ -1,7 +1,8 @@
 /* GastoVision — Demo Mode
  *
  * A 4-step wizard the salesperson uses in front of a restaurant owner:
- *   1. Scan menu photo (Tesseract.js OCR) OR add items manually.
+ *   1. Scan menu photo — optional Gemini via HTTPS proxy (window.GV_GEMINI_MENU_URL),
+ *      else Tesseract.js on-device OCR — or add items manually.
  *   2. Edit the extracted items (titles, descriptions, prices, categories).
  *   3. Add photos per dish (compressed + CSS "pro" filter).
  *   4. Publish: name the restaurant, generate a live URL + QR code.
@@ -42,6 +43,11 @@
     "https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js";
   const LZSTRING_CDN =
     "https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js";
+
+  /* POST { imageBase64, mimeType?, lang? } → { items: [...] } from a server you host
+   * (see workers/gemini-menu/). Never put a Gemini API key in this static file. */
+  const GEMINI_MENU_URL =
+    (typeof window !== "undefined" && window.GV_GEMINI_MENU_URL) || "";
 
   /* ------------------------------ State ------------------------------ */
 
@@ -98,6 +104,93 @@
   }
   function loadLZString() {
     return loadScript(LZSTRING_CDN).then(() => window.LZString);
+  }
+
+  /* ------------------ Optional Gemini menu proxy ------------------- */
+
+  function mapProxyCurrencyToSymbol(c) {
+    if (!c) return "€";
+    const u = String(c).toUpperCase();
+    if (u === "EUR" || u === "€") return "€";
+    if (u === "USD" || u === "US$") return "$";
+    if (u === "GBP" || u === "£") return "£";
+    return "€";
+  }
+
+  function geminiProxyRowsToDraftItems(rows, lang) {
+    const allowed = new Set(["starters", "mains", "drinks", "desserts", "specials"]);
+    const out = [];
+    (rows || []).forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      const title = String(row.title || row.name || "").trim();
+      if (title.length < 2) return;
+      const desc = String(row.description || "").trim();
+      let priceNum =
+        row.price != null && row.price !== ""
+          ? Number(String(row.price).replace(",", "."))
+          : NaN;
+      if (isNaN(priceNum)) priceNum = 0;
+      priceNum = Math.max(0, Math.min(499, priceNum));
+      const catRaw = String(row.category || "mains").toLowerCase();
+      const category = allowed.has(catRaw) ? catRaw : "mains";
+      out.push({
+        id: uid(),
+        category: category,
+        title: { [lang]: title },
+        description: { [lang]: desc },
+        price: priceNum,
+        currency: mapProxyCurrencyToSymbol(row.currency),
+        tags: [],
+        allergens: [],
+        photoUrl: null
+      });
+    });
+    return out;
+  }
+
+  async function fetchMenuItemsViaGeminiProxy(dataUrl, lang) {
+    const endpoint = String(GEMINI_MENU_URL || "").trim();
+    if (!endpoint) throw new Error("no GEMINI_MENU_URL");
+
+    let mimeType = "image/jpeg";
+    let b64 = dataUrl;
+    const dm = dataUrl.match(/^data:([^;]+);base64,(.+)$/i);
+    if (dm) {
+      mimeType = dm[1] || mimeType;
+      b64 = dm[2];
+    }
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageBase64: b64,
+        mimeType: mimeType,
+        lang: lang || "en"
+      })
+    });
+
+    const rawText = await res.text();
+    let payload;
+    try {
+      payload = JSON.parse(rawText);
+    } catch (_) {
+      throw new Error("Bad response from menu proxy (not JSON).");
+    }
+
+    if (!res.ok) {
+      throw new Error(
+        (payload && payload.error) || "Menu proxy error " + res.status
+      );
+    }
+    if (payload.error) throw new Error(String(payload.error));
+
+    const rows = payload.items;
+    if (!Array.isArray(rows)) throw new Error("Menu proxy returned no items array.");
+
+    const items = geminiProxyRowsToDraftItems(rows, lang);
+    if (!items.length) throw new Error("Menu proxy returned zero dishes.");
+    return items;
   }
 
   /* ------------------ Photo compression helpers --------------------- */
@@ -766,7 +859,9 @@
       stepHeader(
         2,
         "Scan the menu",
-        "Take or upload a photo. We'll OCR it and extract dishes."
+        GEMINI_MENU_URL && String(GEMINI_MENU_URL).trim()
+          ? "Upload a photo. We use Gemini (your server) when configured, otherwise on-device OCR."
+          : "Take or upload a photo. We'll OCR it and extract dishes."
       )
     );
 
@@ -790,7 +885,9 @@
     const dzHint = el("div", {
       class: "demo-dropzone__hint",
       text:
-        "Tip: clean printed menus on light backgrounds work best. Avoid glare."
+        GEMINI_MENU_URL && String(GEMINI_MENU_URL).trim()
+          ? "Gemini menu read is enabled; if it fails we fall back to offline OCR. Clear photos and good lighting still help."
+          : "Tip: clean printed menus on light backgrounds work best. Avoid glare."
     });
     dropzone.appendChild(dzIcon);
     dropzone.appendChild(dzText);
@@ -856,13 +953,86 @@
       }
     });
 
+    function applyExtractedItems(items) {
+      if (!items || items.length === 0) {
+        resultBox.innerHTML = "";
+        resultBox.hidden = false;
+        resultBox.appendChild(
+          el("p", {
+            class: "demo-result__msg",
+            text:
+              "We couldn't pull dishes out of this image. Try a clearer photo or add the items manually."
+          })
+        );
+        const row = el("div", { class: "demo-actions" });
+        row.appendChild(
+          el("button", {
+            class: "btn btn--primary",
+            type: "button",
+            text: "Add items manually",
+            onClick: () => GV.navigate("#/demo/edit")
+          })
+        );
+        resultBox.appendChild(row);
+        return;
+      }
+
+      const draft = loadDraft();
+      draft.items = items;
+      saveDraft(draft);
+
+      resultBox.innerHTML = "";
+      resultBox.hidden = false;
+      resultBox.appendChild(
+        el("p", {
+          class: "demo-result__msg demo-result__msg--ok",
+          html:
+            "Found <strong>" +
+            items.length +
+            "</strong> dish" +
+            (items.length === 1 ? "" : "es") +
+            ". Review and edit them next."
+        })
+      );
+      const row = el("div", { class: "demo-actions" });
+      row.appendChild(
+        el("a", {
+          href: "#/demo/edit",
+          class: "btn btn--primary",
+          text: "Continue →"
+        })
+      );
+      resultBox.appendChild(row);
+    }
+
     async function runOcr(dataUrl) {
       progressBox.hidden = false;
       resultBox.hidden = true;
       progressBar.style.width = "5%";
-      progressLabel.textContent = "Loading OCR engine (~10 MB, one time)…";
+      const lang = I18N.get() || "en";
 
       try {
+        let items = [];
+
+        if (GEMINI_MENU_URL && String(GEMINI_MENU_URL).trim()) {
+          try {
+            progressLabel.textContent = "Reading the menu with Gemini…";
+            progressBar.style.width = "25%";
+            items = await fetchMenuItemsViaGeminiProxy(dataUrl, lang);
+            progressBar.style.width = "100%";
+            progressLabel.textContent = "Done.";
+            applyExtractedItems(items);
+            return;
+          } catch (gErr) {
+            console.warn("[demo] Gemini menu proxy failed, falling back to OCR.", gErr);
+            GV.showToast("AI menu read failed — using on-device OCR instead.");
+            items = [];
+          }
+        }
+
+        progressLabel.textContent = "Loading OCR engine (~10 MB, one time)…";
+        progressBar.style.width = "5%";
+
         const Tesseract = await loadTesseract();
         progressLabel.textContent = "Reading the menu…";
         progressBar.style.width = "20%";
@@ -882,57 +1052,8 @@
         progressLabel.textContent = "Done.";
 
         const text = (result && result.data && result.data.text) || "";
-        const items = parseMenuText(text);
-
-        if (items.length === 0) {
-          resultBox.innerHTML = "";
-          resultBox.hidden = false;
-          resultBox.appendChild(
-            el("p", {
-              class: "demo-result__msg",
-              text:
-                "We couldn't pull dishes out of this image. Try a clearer photo or add the items manually."
-            })
-          );
-          const row = el("div", { class: "demo-actions" });
-          row.appendChild(
-            el("button", {
-              class: "btn btn--primary",
-              type: "button",
-              text: "Add items manually",
-              onClick: () => GV.navigate("#/demo/edit")
-            })
-          );
-          resultBox.appendChild(row);
-          return;
-        }
-
-        const draft = loadDraft();
-        draft.items = items;
-        saveDraft(draft);
-
-        resultBox.innerHTML = "";
-        resultBox.hidden = false;
-        resultBox.appendChild(
-          el("p", {
-            class: "demo-result__msg demo-result__msg--ok",
-            html:
-              "Found <strong>" +
-              items.length +
-              "</strong> dish" +
-              (items.length === 1 ? "" : "es") +
-              ". Review and edit them next."
-          })
-        );
-        const row = el("div", { class: "demo-actions" });
-        row.appendChild(
-          el("a", {
-            href: "#/demo/edit",
-            class: "btn btn--primary",
-            text: "Continue →"
-          })
-        );
-        resultBox.appendChild(row);
+        items = parseMenuText(text);
+        applyExtractedItems(items);
       } catch (err) {
         progressBox.hidden = true;
         resultBox.innerHTML = "";
