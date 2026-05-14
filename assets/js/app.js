@@ -164,6 +164,10 @@
    *        the photo so the experience is always on-topic.
    */
   function getPhotoUrl(item) {
+    /* Demo dishes ship their own user-uploaded photo as a data URL or a
+     * remote http(s) URL — use it directly. Otherwise fall back to the
+     * built-in cinematic AI photo for the original 11 items. */
+    if (item.photoUrl) return item.photoUrl;
     return "assets/img/dishes/" + item.id + ".jpg";
   }
   function getVideoUrl(item) {
@@ -1205,6 +1209,16 @@
     const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
     window.scrollTo(0, 0);
 
+    /* Plug-in routes (e.g. demo mode). The first hook to return true wins. */
+    const hooks = (window.GV && window.GV._routeHooks) || [];
+    for (let i = 0; i < hooks.length; i++) {
+      try {
+        if (hooks[i](parts, hash) === true) return;
+      } catch (err) {
+        console.error("GV route hook threw:", err);
+      }
+    }
+
     if (parts.length === 0) return renderWelcome();
     if (parts[0] === "menu") return renderMenu(parts[1]);
     if (parts[0] === "item") return renderItem(parts[1]);
@@ -1259,6 +1273,62 @@
       if (e.key === "Escape") close();
     });
   }
+
+  /* ------------------------ Public API (window.GV) ------------------- */
+
+  /* Snapshot of the original menu so demo mode can reset back to it. */
+  const ORIGINAL_DATA = JSON.parse(JSON.stringify(DATA));
+
+  window.GV = {
+    /* DOM helpers */
+    el,
+    view,
+    tabbar,
+    showToast,
+    makeIcon,
+
+    /* Data helpers */
+    get DATA() {
+      return DATA;
+    },
+    setData(newData) {
+      /* Replace DATA's contents in place so existing references stay live. */
+      Object.keys(DATA).forEach((k) => delete DATA[k]);
+      Object.assign(DATA, newData);
+      route();
+    },
+    resetData() {
+      Object.keys(DATA).forEach((k) => delete DATA[k]);
+      Object.assign(DATA, JSON.parse(JSON.stringify(ORIGINAL_DATA)));
+      route();
+    },
+
+    /* Item helpers */
+    getName,
+    getDescription,
+    getCategoryLabel,
+    formatPrice,
+    getPhotoUrl,
+    getVideoUrl,
+    videoOrImage,
+
+    /* Navigation */
+    navigate(hash) {
+      if (location.hash === hash) route();
+      else location.hash = hash;
+    },
+    render: route,
+
+    /* Storage */
+    saveJson,
+    loadJson,
+
+    /* i18n */
+    I18N,
+
+    /* Plug-in route hooks: each is fn(parts, hash) -> bool. */
+    _routeHooks: []
+  };
 
   /* -------------------------------- Boot ----------------------------- */
 

@@ -1654,3 +1654,733 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ====================================================================
+ * Demo mode — wizard for onboarding a new restaurant in front of the
+ * owner. Routed under #/demo. Full-bleed white-space layout, distinct
+ * from the consumer-facing menu so the salesperson never confuses the
+ * two.
+ * ==================================================================== */
+
+.body--demo-wizard {
+  background: linear-gradient(180deg, var(--bg) 0%, #051f1d 100%);
+}
+.body--demo-wizard .topbar {
+  border-bottom: 1px solid var(--line);
+  background: rgba(6, 41, 39, 0.92);
+}
+
+.demo {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 24px 18px 120px;
+}
+.demo--center {
+  text-align: center;
+}
+
+.demo-header {
+  position: relative;
+  padding: 8px 0 24px;
+}
+.demo-header__exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+  font-size: 13px;
+  text-decoration: none;
+  padding: 6px 10px;
+  margin-left: -10px;
+  border-radius: var(--r-pill);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.demo-header__exit:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+.demo-header__exit svg {
+  width: 14px;
+  height: 14px;
+}
+.demo-header__title {
+  font-family: "Fraunces", serif;
+  font-size: clamp(28px, 5vw, 40px);
+  line-height: 1.05;
+  margin: 14px 0 6px;
+  letter-spacing: -0.01em;
+}
+.demo-header__sub {
+  color: var(--text-dim);
+  margin: 0;
+  font-size: 16px;
+  max-width: 56ch;
+}
+.demo--center .demo-header__sub {
+  margin: 0 auto;
+}
+
+.demo-steps {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.demo--center .demo-steps {
+  justify-content: center;
+}
+.demo-steps__dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-mute);
+  border: 1px solid var(--line);
+  transition: all 0.2s ease;
+}
+.demo-steps__dot--current {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(45, 212, 191, 0.18);
+}
+.demo-steps__dot--done {
+  background: rgba(45, 212, 191, 0.18);
+  color: var(--accent-2);
+  border-color: rgba(45, 212, 191, 0.4);
+}
+
+/* Step 1 — choose input */
+.demo-choice {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin: 24px auto 0;
+  max-width: 720px;
+}
+@media (min-width: 720px) {
+  .demo-choice {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.demo-choice__card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 28px 22px;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  font: inherit;
+}
+.demo-choice__card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+.demo-choice__icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+.demo-choice__card h3 {
+  font-family: "Fraunces", serif;
+  font-size: 22px;
+  margin: 0 0 6px;
+}
+.demo-choice__card p {
+  color: var(--text-dim);
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.demo-choice__badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: var(--r-pill);
+  background: rgba(251, 146, 60, 0.18);
+  color: var(--warm-2);
+}
+
+.demo-resume {
+  margin-top: 32px;
+  padding: 14px 18px;
+  background: rgba(45, 212, 191, 0.08);
+  border: 1px solid rgba(45, 212, 191, 0.24);
+  border-radius: var(--r-md);
+}
+.demo-resume p {
+  margin: 0 0 10px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.demo-resume__row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.demo--center .demo-resume {
+  text-align: left;
+}
+
+/* Generic demo card surface */
+.demo-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  margin-top: 20px;
+}
+
+/* Inputs */
+.demo-input {
+  width: 100%;
+  background: var(--bg-2);
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  padding: 11px 12px;
+  font: inherit;
+  font-size: 15px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.demo-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-3);
+}
+.demo-input--title {
+  font-family: "Fraunces", serif;
+  font-size: 18px;
+  font-weight: 600;
+}
+.demo-input--desc {
+  resize: vertical;
+  min-height: 56px;
+}
+.demo-input--cat {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 20 20'%3E%3Cpath d='M5 8l5 5 5-5' fill='none' stroke='%23a3d4ce' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 32px;
+}
+
+.demo-field {
+  display: block;
+  margin-bottom: 14px;
+}
+.demo-field__label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+/* Step 2 — scan dropzone */
+.demo-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--line-2);
+  border-radius: var(--r-lg);
+  padding: 48px 24px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  background: rgba(255, 255, 255, 0.02);
+  text-align: center;
+}
+.demo-dropzone:hover {
+  border-color: var(--accent);
+  background: rgba(45, 212, 191, 0.04);
+}
+.demo-dropzone__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.demo-dropzone__icon {
+  font-size: 44px;
+  margin-bottom: 10px;
+}
+.demo-dropzone__text {
+  font-size: 17px;
+  font-weight: 600;
+}
+.demo-dropzone__hint {
+  margin-top: 6px;
+  color: var(--text-mute);
+  font-size: 13px;
+  max-width: 36ch;
+}
+.demo-dropzone--with-preview {
+  padding: 18px;
+}
+
+.demo-preview {
+  margin-top: 14px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: #000;
+  max-height: 380px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.demo-preview__img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.demo-progress {
+  margin-top: 16px;
+}
+.demo-progress__label {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.demo-progress__track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.demo-progress__bar {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+  transition: width 0.25s ease;
+  border-radius: var(--r-pill);
+}
+
+.demo-result {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+}
+.demo-result__msg {
+  margin: 0 0 12px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.demo-result__msg--ok {
+  color: var(--success);
+}
+
+/* Step 2 — editor list */
+.demo-list {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.demo-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 28px;
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.demo-row__index {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+}
+.demo-row__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.demo-row__meta {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  gap: 8px;
+}
+.demo-input--price-wrap {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+}
+.demo-input--currency {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  text-align: center;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+.demo-input--price {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 0;
+}
+.demo-row__remove {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text-mute);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.demo-row__remove:hover {
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+.demo-row__remove svg {
+  width: 14px;
+  height: 14px;
+}
+
+.demo-add {
+  margin-top: 14px;
+  width: 100%;
+}
+
+/* Step 3 — photos grid */
+.demo-photos {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.demo-photo {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 12px;
+}
+.demo-photo__preview {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: var(--bg-2);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.demo-photo__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter 0.2s ease;
+}
+.demo-photo__img--pro {
+  filter: contrast(1.08) saturate(1.18) brightness(0.96);
+}
+.demo-photo__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: var(--text-mute);
+}
+.demo-photo__title {
+  font-family: "Fraunces", serif;
+  font-size: 16px;
+  margin: 0 0 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.demo-photo__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: auto;
+}
+.demo-photo__upload,
+.demo-photo__toggle {
+  text-align: center;
+  font-size: 13px;
+  padding: 8px 10px;
+}
+.demo-photo__toggle.is-on {
+  border-color: rgba(45, 212, 191, 0.45);
+  color: var(--accent-2);
+  background: rgba(45, 212, 191, 0.08);
+}
+
+.demo-skip-note {
+  text-align: center;
+  color: var(--text-mute);
+  font-size: 13px;
+  margin: 18px 0 0;
+}
+
+/* Generic action rows */
+.demo-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.demo-actions--sticky {
+  position: sticky;
+  bottom: 12px;
+  background: linear-gradient(180deg, transparent 0%, var(--bg) 50%);
+  padding: 12px 0 0;
+  z-index: 10;
+}
+
+/* Step 4 — launch */
+.demo-card--launch {
+  display: flex;
+  flex-direction: column;
+}
+.demo-summary {
+  display: flex;
+  gap: 18px;
+  padding: 12px 0;
+  color: var(--text-dim);
+  font-size: 14px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin: 6px 0 16px;
+}
+.btn--big {
+  padding: 14px 22px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.demo-launch-result {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.demo-launch-banner {
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.demo-launch-banner--ok {
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.32);
+  color: #d1fae5;
+}
+.demo-launch-banner--local {
+  background: rgba(251, 146, 60, 0.1);
+  border: 1px solid rgba(251, 146, 60, 0.32);
+  color: #ffedd5;
+}
+.demo-qr {
+  display: flex;
+  justify-content: center;
+  padding: 18px;
+  background: #fff;
+  border-radius: var(--r-md);
+}
+.demo-qr__canvas {
+  max-width: 100%;
+  height: auto;
+}
+.demo-qr__error {
+  color: var(--danger);
+  margin: 8px 0 0;
+}
+.demo-link {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+.demo-link__input {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 12px;
+}
+.demo-launch-size {
+  font-size: 12px;
+  color: var(--text-mute);
+  margin: 0;
+  text-align: center;
+}
+
+/* Error view */
+.demo--error {
+  text-align: center;
+  padding-top: 60px;
+}
+.demo__error-title {
+  font-family: "Fraunces", serif;
+  font-size: 28px;
+  margin: 0 0 10px;
+}
+.demo__error-msg {
+  color: var(--text-dim);
+  white-space: pre-line;
+  margin: 0 0 20px;
+}
+
+/* Demo viewer mode — small badge so the salesperson always knows which
+ * "restaurant" they're looking at. */
+.gv-demo-mode .topbar::after {
+  content: "DEMO";
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--warm) 100%);
+  color: var(--bg);
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  margin-left: 10px;
+  align-self: center;
+}
+
+/* Generic button helpers used across the wizard */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease;
+}
+.btn:hover {
+  background: var(--surface-2);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn--primary {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  color: var(--bg);
+  border-color: transparent;
+}
+.btn--primary:hover {
+  filter: brightness(1.05);
+}
+.btn--ghost {
+  background: transparent;
+}
+.btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.btn--danger {
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+.btn--danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #fee2e2;
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Welcome screen — tiny "Demo mode" entry link tucked at the bottom so
+ * only people who know it's there will see it. */
+.demo-entry-pill {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  z-index: 50;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+  padding: 6px 10px;
+  border-radius: var(--r-pill);
+  text-decoration: none;
+  backdrop-filter: blur(6px);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.demo-entry-pill:hover {
+  background: rgba(45, 212, 191, 0.18);
+  color: var(--text);
+  border-color: rgba(45, 212, 191, 0.4);
+}
+.body--welcome .demo-entry-pill {
+  bottom: 14px;
+}
+/* Inside the wizard or the consumer viewer, the pill is redundant/confusing. */
+.body--demo-wizard .demo-entry-pill,
+.gv-demo-mode .demo-entry-pill {
+  display: none;
+}
+/* Above the bottom tab bar so the pill never overlaps the icons. */
+@media (max-width: 720px) {
+  .demo-entry-pill {
+    bottom: calc(var(--tab-h) + 14px);
+  }
+}
+
+/* Exit demo pill — only shown while in the consumer viewer. */
+.demo-exit-pill {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 60px);
+  right: 14px;
+  z-index: 60;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: var(--r-pill);
+  text-decoration: none;
+  backdrop-filter: blur(8px);
+  display: none;
+  transition: background 0.15s ease;
+}
+.demo-exit-pill:hover {
+  background: rgba(0, 0, 0, 0.78);
+}
+.gv-demo-mode .demo-exit-pill {
+  display: inline-flex;
+}
