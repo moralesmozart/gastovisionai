@@ -167,8 +167,10 @@
     /* Printed menus often omit the € in OCR, or glue every row into one line.
      * We merge explicit currency hits with standalone numbers that look like prices. */
     function findAllPriceMatches(line) {
+      /* Note: `\b` after `€` fails in JS when the next char is a space (both are
+       * “non-word”), so euro prices were never matched — use `(?=\D|$)` instead. */
       const re =
-        /\(\s*(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:€|EUR)\s*\)|(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:€|EUR)\b|(?:€|EUR)\s*(\d{1,3}(?:[.,]\d{1,2})?)|(\d{1,3}(?:[.,]\d{1,2})?)\s*(USD)\b|(\d{1,3}(?:[.,]\d{1,2})?)\s*(\$)|(\$)\s*(\d{1,3}(?:[.,]\d{1,2})?)|([£])\s*(\d{1,3}(?:[.,]\d{1,2})?)/gi;
+        /\(\s*(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:€|EUR)\s*\)|(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:€|EUR)(?=\D|$)|(?:€|EUR)\s*(\d{1,3}(?:[.,]\d{1,2})?)(?=\D|$)|(\d{1,3}(?:[.,]\d{1,2})?)\s*(USD)\b|(\d{1,3}(?:[.,]\d{1,2})?)\s*(\$)|(\$)\s*(\d{1,3}(?:[.,]\d{1,2})?)|([£])\s*(\d{1,3}(?:[.,]\d{1,2})?)/gi;
       const out = [];
       let m;
       while ((m = re.exec(line)) !== null) {
@@ -252,7 +254,17 @@
       };
     }
 
-    const lines = text
+    /* Two-column menus: OCR often reads across the gutter ("…10€ Next dish…"). */
+    function normalizeOcrMenuText(t) {
+      if (!t) return t;
+      /* After €, allow bullets / OCR noise before the next dish name. */
+      return t.replace(
+        /(\d{1,3}(?:[.,]\d{1,2})?)\s*(€|EUR)(?=\s+(?:(?:[*+•·«»®©]+|[(])\s*)?[A-Za-z\u00C0-\u024f(])/gi,
+        "$1$2\n"
+      );
+    }
+
+    const lines = normalizeOcrMenuText(text)
       .split(/\r?\n/)
       .map((l) => l.replace(/\s+/g, " ").trim())
       .filter((l) => l.length > 1);
