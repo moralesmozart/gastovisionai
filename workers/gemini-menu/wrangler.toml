@@ -1,4 +1,4 @@
-# Cloudflare Worker — proxies menu images to Google Gemini (API key stays here, not in the browser).
+# Cloudflare Worker — POST OCR text to Gemini (text-only generateContent; no image API).
 #
 #   cd workers/gemini-menu
 #   npm i -g wrangler   # or use npx wrangler

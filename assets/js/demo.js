@@ -1,8 +1,8 @@
 /* GastoVision — Demo Mode
  *
  * A 4-step wizard the salesperson uses in front of a restaurant owner:
- *   1. Scan menu photo — optional Gemini via HTTPS proxy (window.GV_GEMINI_MENU_URL),
- *      else Tesseract.js on-device OCR — or add items manually.
+ *   1. Scan menu photo — on-device OCR (Tesseract), optional Gemini text pass
+ *      (window.GV_GEMINI_MENU_URL) to structure OCR into dishes, or add manually.
  *   2. Edit the extracted items (titles, descriptions, prices, categories).
  *   3. Add photos per dish (compressed + CSS "pro" filter).
  *   4. Publish: name the restaurant, generate a live URL + QR code.
@@ -44,8 +44,7 @@
   const LZSTRING_CDN =
     "https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js";
 
-  /* POST { imageBase64, mimeType?, lang? } → { items: [...] } from a server you host
-   * (see workers/gemini-menu/). Never put a Gemini API key in this static file. */
+  /* POST { text, lang? } → { items: [...] } — server runs Gemini on OCR text only (no image). */
   const GEMINI_MENU_URL =
     (typeof window !== "undefined" && window.GV_GEMINI_MENU_URL) || "";
 
@@ -148,24 +147,18 @@
     return out;
   }
 
-  async function fetchMenuItemsViaGeminiProxy(dataUrl, lang) {
+  async function fetchMenuItemsFromGeminiText(ocrText, lang) {
     const endpoint = String(GEMINI_MENU_URL || "").trim();
     if (!endpoint) throw new Error("no GEMINI_MENU_URL");
 
-    let mimeType = "image/jpeg";
-    let b64 = dataUrl;
-    const dm = dataUrl.match(/^data:([^;]+);base64,(.+)$/i);
-    if (dm) {
-      mimeType = dm[1] || mimeType;
-      b64 = dm[2];
-    }
+    const text = String(ocrText || "").trim().slice(0, 80000);
+    if (text.length < 8) throw new Error("empty OCR text");
 
     const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        imageBase64: b64,
-        mimeType: mimeType,
+        text: text,
         lang: lang || "en"
       })
     });
@@ -860,7 +853,7 @@
         2,
         "Scan the menu",
         GEMINI_MENU_URL && String(GEMINI_MENU_URL).trim()
-          ? "Upload a photo. We use Gemini (your server) when configured, otherwise on-device OCR."
+          ? "Upload a photo. We read it on-device, then optionally send the text to your server to tidy dishes."
           : "Take or upload a photo. We'll OCR it and extract dishes."
       )
     );
@@ -886,7 +879,7 @@
       class: "demo-dropzone__hint",
       text:
         GEMINI_MENU_URL && String(GEMINI_MENU_URL).trim()
-          ? "Gemini menu read is enabled; if it fails we fall back to offline OCR. Clear photos and good lighting still help."
+          ? "When a menu URL is set, OCR runs in the browser first; your worker sends only text to the model (no photo upload to Gemini)."
           : "Tip: clean printed menus on light backgrounds work best. Avoid glare."
     });
     dropzone.appendChild(dzIcon);
@@ -1012,24 +1005,6 @@
       const lang = I18N.get() || "en";
 
       try {
-        let items = [];
-
-        if (GEMINI_MENU_URL && String(GEMINI_MENU_URL).trim()) {
-          try {
-            progressLabel.textContent = "Reading the menu with Gemini…";
-            progressBar.style.width = "25%";
-            items = await fetchMenuItemsViaGeminiProxy(dataUrl, lang);
-            progressBar.style.width = "100%";
-            progressLabel.textContent = "Done.";
-            applyExtractedItems(items);
-            return;
-          } catch (gErr) {
-            console.warn("[demo] Gemini menu proxy failed, falling back to OCR.", gErr);
-            GV.showToast("AI menu read failed — using on-device OCR instead.");
-            items = [];
-          }
-        }
-
         progressLabel.textContent = "Loading OCR engine (~10 MB, one time)…";
         progressBar.style.width = "5%";
 
@@ -1040,7 +1015,7 @@
         const result = await Tesseract.recognize(dataUrl, "eng+spa+por", {
           logger: (m) => {
             if (m.status === "recognizing text") {
-              const pct = Math.min(95, 20 + Math.round(m.progress * 75));
+              const pct = Math.min(88, 20 + Math.round(m.progress * 68));
               progressBar.style.width = pct + "%";
               progressLabel.textContent =
                 "Reading the menu… " + Math.round(m.progress * 100) + "%";
@@ -1048,11 +1023,25 @@
           }
         });
 
+        const ocrText = (result && result.data && result.data.text) || "";
+        let items = [];
+
+        if (GEMINI_MENU_URL && String(GEMINI_MENU_URL).trim() && ocrText.trim().length >= 8) {
+          try {
+            progressLabel.textContent = "Organizing dishes with AI…";
+            progressBar.style.width = "92%";
+            items = await fetchMenuItemsFromGeminiText(ocrText, lang);
+          } catch (gErr) {
+            console.warn("[demo] Gemini text pass failed, using local rules.", gErr);
+            GV.showToast("AI tidy failed — using local rules on the OCR text.");
+            items = parseMenuText(ocrText);
+          }
+        } else {
+          items = parseMenuText(ocrText);
+        }
+
         progressBar.style.width = "100%";
         progressLabel.textContent = "Done.";
-
-        const text = (result && result.data && result.data.text) || "";
-        items = parseMenuText(text);
         applyExtractedItems(items);
       } catch (err) {
         progressBox.hidden = true;
