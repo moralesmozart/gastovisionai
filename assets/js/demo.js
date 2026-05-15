@@ -32,7 +32,8 @@
   const STORAGE_DRAFT = "gv.demo.draft";
   const STORAGE_LOCAL_DEMOS = "gv.demo.local"; // map<id, demo>
   const STORAGE_PUBLISHED = "gv.demo.published"; // [{id, mode, name, createdAt}]
-  const MAX_QR_URL_LENGTH = 4000; // QR scanners get unreliable past this
+  const STORAGE_PHOTO_STORE = "gv.demo.photoStore"; // { storeId: { itemId: dataUrl } }
+  const MAX_QR_URL_LENGTH = 7200; // QR payload; photos are recompressed before stripping
   const PHOTO_MAX_DIM = 1200;
   const PHOTO_QUALITY = 0.72;
   const PHOTO_FOR_URL_MAX_DIM = 600;
@@ -450,6 +451,31 @@
    * the full DATA shape (multilingual fields, categories with icons, etc.).
    * This converter bridges the two so we can hand any draft straight into
    * GV.setData() to render the live preview / published view. */
+  function savePhotoStore(storeId, draft) {
+    const entry = {};
+    (draft.items || []).forEach((it) => {
+      if (it.photoUrl) entry[it.id] = it.photoUrl;
+    });
+    if (!Object.keys(entry).length) return;
+    const map = GV.loadJson(STORAGE_PHOTO_STORE, {});
+    map[storeId] = entry;
+    GV.saveJson(STORAGE_PHOTO_STORE, map);
+  }
+
+  function mergePhotoStore(data) {
+    const sid = data && data.photoStoreId;
+    if (!sid) return data;
+    const map = GV.loadJson(STORAGE_PHOTO_STORE, {});
+    const entry = map[sid];
+    if (!entry) return data;
+    (data.items || []).forEach((it) => {
+      if (entry[it.id]) it.photoUrl = entry[it.id];
+    });
+    const first = (data.items || []).find((i) => i.photoUrl);
+    if (first && data.restaurant) data.restaurant.hero = first.photoUrl;
+    return data;
+  }
+
   function draftToData(draft) {
     const lang = draft.lang || I18N.get() || "en";
 
@@ -540,7 +566,10 @@
       [280, 0.29],
       [240, 0.26],
       [200, 0.23],
-      [180, 0.2]
+      [180, 0.2],
+      [160, 0.18],
+      [128, 0.16],
+      [96, 0.14]
     ];
 
     /* Try URL-stuffed mode (cross-device): start as-is, then smaller photos. */
@@ -565,12 +594,15 @@
         }
       }
 
-      /* Last resort for URL mode: menu text only (no photos in the link). */
+      /* Last resort for URL mode: menu text only; photos on this phone via photoStoreId. */
       const textOnly = JSON.parse(JSON.stringify(draft));
+      const photoStoreId = uid();
+      savePhotoStore(photoStoreId, draft);
       (textOnly.items || []).forEach((it) => {
         it.photoUrl = null;
       });
       const dataNoPhotos = draftToData(textOnly);
+      dataNoPhotos.photoStoreId = photoStoreId;
       const { baseUrl, len } = encodeUrlPayload(dataNoPhotos);
       if (len <= MAX_QR_URL_LENGTH) {
         return {
@@ -579,8 +611,9 @@
           size: len,
           photosReduced: true,
           photosStrippedForUrl: true,
+          photoStoreId: photoStoreId,
           photosReducedNote:
-            "Photos are not in this link (too many dishes for one QR). The menu still opens; add photos again on the owner's device if you need them."
+            "Photos are saved on this phone. Scanning the QR on another device shows the menu without photos."
         };
       }
     } catch (_) {
@@ -628,7 +661,7 @@
           json = LZ.decompressFromEncodedURIComponent(compressed.replace(/ /g, "+"));
         }
         if (!json) throw new Error("decompress failed");
-        const data = JSON.parse(json);
+        const data = mergePhotoStore(JSON.parse(json));
         applyDemoData(data);
       } catch (err) {
         renderError("Couldn't open this demo. The link looks corrupted.");
@@ -1511,7 +1544,7 @@
     banner.innerHTML =
       published.mode === "url"
         ? published.photosStrippedForUrl
-          ? "<strong>Live!</strong> This QR opens the full menu on any phone. Photos were left out so the link fits in the code — add them again on the owner's device if you want."
+          ? "<strong>Live!</strong> QR works on any phone. <strong>Photos show on this phone only</strong> — open the link below here first, or re-add photos on another device."
           : "<strong>Live!</strong> Anyone can scan this QR to open your demo on any phone."
         : "<strong>Demo ready.</strong> The menu is too big for a cross-device QR. Hand the device to the owner, or remove some photos to enable cross-device sharing.";
     container.appendChild(banner);
@@ -1581,10 +1614,10 @@
     cta.appendChild(
       el("a", {
         href: published.url,
-        target: "_blank",
-        rel: "noopener",
         class: "btn btn--primary",
-        text: "Open the demo →"
+        text: published.photosStrippedForUrl
+          ? "Open demo with photos (this phone) →"
+          : "Open the demo →"
       })
     );
     cta.appendChild(

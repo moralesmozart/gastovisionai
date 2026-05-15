@@ -163,11 +163,16 @@
    *        Otherwise, "play" triggers a cinematic Ken Burns pan/zoom on
    *        the photo so the experience is always on-topic.
    */
+  const BUILTIN_DISH_IDS = new Set(
+    (window.GV_DATA && window.GV_DATA.items ? window.GV_DATA.items : []).map((d) => d.id)
+  );
+
   function getPhotoUrl(item) {
     /* Demo dishes ship their own user-uploaded photo as a data URL or a
      * remote http(s) URL — use it directly. Otherwise fall back to the
-     * built-in cinematic AI photo for the original 11 items. */
+     * built-in cinematic AI photo for the original 11 items only. */
     if (item.photoUrl) return item.photoUrl;
+    if (!BUILTIN_DISH_IDS.has(item.id)) return null;
     return "assets/img/dishes/" + item.id + ".jpg";
   }
   function getVideoUrl(item) {
@@ -188,14 +193,17 @@
     });
     wrap.appendChild(fallback);
 
-    const img = el("img", {
-      class: "media__img",
-      src: getPhotoUrl(item),
-      alt: getName(item),
-      loading: "lazy"
-    });
-    img.addEventListener("error", () => img.classList.add("media__img--failed"));
-    wrap.appendChild(img);
+    const photoSrc = getPhotoUrl(item);
+    if (photoSrc) {
+      const img = el("img", {
+        class: "media__img",
+        src: photoSrc,
+        alt: getName(item),
+        loading: "lazy"
+      });
+      img.addEventListener("error", () => img.classList.add("media__img--failed"));
+      wrap.appendChild(img);
+    }
 
     /* Play button — always shown. Tries to load a real MP4 once; if it 404s,
      * we silently switch this dish into Ken Burns mode for the rest of the
