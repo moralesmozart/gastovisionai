@@ -122,6 +122,47 @@ window.I18N = (function () {
         close: "Close",
         ok: "OK"
       },
+      gateway: {
+        title: "Video menus\nthat sell themselves.",
+        tagline: "Scan · See · Crave",
+        intro:
+          "GastoVision turns your menu into a mobile experience guests actually use. Pick one of the cards below and test it yourself — as a diner, as a sales demo, or as the restaurant admin.",
+        tryHeading: "Try it yourself",
+        scrollHint: "Swipe to explore",
+        pricing: {
+          cta: "Chat on WhatsApp",
+          trial: {
+            badge: "Starter",
+            price: "Free demo · 30 days",
+            desc: "Build your branded menu, share a live link, and show it to guests."
+          },
+          pro: {
+            badge: "Restaurant",
+            price: "€99 / month",
+            desc: "Full platform, unlimited updates, and priority support for your venue."
+          }
+        },
+        benefits: [
+          { icon: "🎬", title: "Video-first menus", text: "Guests see real dishes — not flat PDFs." },
+          { icon: "📈", title: "Higher sales", text: "Visual menus drive upsells and confidence at the table." },
+          { icon: "🔄", title: "One update, every QR", text: "Change your menu once; all tables stay in sync." },
+          { icon: "💬", title: "Guest engagement", text: "Favourites, sharing, and feedback built in." }
+        ],
+        paths: {
+          guest: {
+            title: "Guest",
+            text: "Browse the sample restaurant menu."
+          },
+          demo: {
+            title: "Demo",
+            text: "Build a branded sample menu in minutes."
+          },
+          owner: {
+            title: "Admin",
+            text: "Sign in to manage your restaurant."
+          }
+        }
+      },
       owner: {
         brandSub: "Restaurant console",
         tutorials: "Tutorials",
@@ -326,6 +367,47 @@ window.I18N = (function () {
         loading: "Cargando…",
         close: "Cerrar",
         ok: "Vale"
+      },
+      gateway: {
+        title: "Cartas en vídeo\nque venden solas.",
+        tagline: "Escanea · Ve · Pide",
+        intro:
+          "GastoVision convierte tu carta en una experiencia móvil que el cliente usa de verdad. Elige una tarjeta y pruébala tú mismo — como comensal, demo comercial o admin del local.",
+        tryHeading: "Pruébalo tú mismo",
+        scrollHint: "Desliza para ver más",
+        pricing: {
+          cta: "Hablar por WhatsApp",
+          trial: {
+            badge: "Inicio",
+            price: "Demo gratis · 30 días",
+            desc: "Crea tu carta con tu marca, comparte un enlace en vivo y muéstralo a tus clientes."
+          },
+          pro: {
+            badge: "Restaurante",
+            price: "99 € / mes",
+            desc: "Plataforma completa, actualizaciones ilimitadas y soporte prioritario."
+          }
+        },
+        benefits: [
+          { icon: "🎬", title: "Cartas en vídeo", text: "Platos reales en pantalla — no PDFs planos." },
+          { icon: "📈", title: "Más ventas", text: "La carta visual impulsa el ticket y la confianza." },
+          { icon: "🔄", title: "Una carta, todos los QR", text: "Actualizas una vez; todas las mesas al día." },
+          { icon: "💬", title: "Engagement", text: "Favoritos, compartir y feedback integrados." }
+        ],
+        paths: {
+          guest: {
+            title: "Usuario",
+            text: "Explora el menú de muestra del restaurante."
+          },
+          demo: {
+            title: "Demo",
+            text: "Crea una carta de muestra con tu marca."
+          },
+          owner: {
+            title: "Admin",
+            text: "Inicia sesión para gestionar tu local."
+          }
+        }
       },
       owner: {
         brandSub: "Panel del local",
@@ -532,6 +614,47 @@ window.I18N = (function () {
         close: "Fechar",
         ok: "OK"
       },
+      gateway: {
+        title: "Menus em vídeo\nque vendem sozinhos.",
+        tagline: "Digitaliza · Vê · Pede",
+        intro:
+          "O GastoVision transforma o teu menu numa experiência móvel que os clientes usam a sério. Escolhe um cartão abaixo e testa — como cliente, demo comercial ou admin.",
+        tryHeading: "Experimenta",
+        scrollHint: "Desliza para ver mais",
+        pricing: {
+          cta: "Falar no WhatsApp",
+          trial: {
+            badge: "Início",
+            price: "Demo grátis · 30 dias",
+            desc: "Cria o menu com a tua marca e partilha um link ao vivo."
+          },
+          pro: {
+            badge: "Restaurante",
+            price: "99 € / mês",
+            desc: "Plataforma completa, atualizações ilimitadas e apoio prioritário."
+          }
+        },
+        benefits: [
+          { icon: "🎬", title: "Menus em vídeo", text: "Pratos reais no ecrã — não PDFs." },
+          { icon: "📈", title: "Mais vendas", text: "Menus visuais aumentam o ticket médio." },
+          { icon: "🔄", title: "Uma carta, todos os QR", text: "Atualizas uma vez; todas as mesas em dia." },
+          { icon: "💬", title: "Engagement", text: "Favoritos, partilha e feedback incluídos." }
+        ],
+        paths: {
+          guest: {
+            title: "Utilizador",
+            text: "Explora o menu de amostra do restaurante."
+          },
+          demo: {
+            title: "Demo",
+            text: "Cria um menu de amostra com a tua marca."
+          },
+          owner: {
+            title: "Admin",
+            text: "Inicia sessão para gerir o teu restaurante."
+          }
+        }
+      },
       owner: {
         brandSub: "Consola do restaurante",
         tutorials: "Tutoriais",
@@ -735,6 +858,47 @@ window.I18N = (function () {
         loading: "Chargement…",
         close: "Fermer",
         ok: "OK"
+      },
+      gateway: {
+        title: "Menus vidéo\nqui se vendent seuls.",
+        tagline: "Scannez · Voyez · Commandez",
+        intro:
+          "GastoVision transforme votre carte en expérience mobile que vos clients utilisent vraiment. Choisissez une carte ci-dessous et testez — client, démo ou admin.",
+        tryHeading: "Essayez par vous-même",
+        scrollHint: "Glissez pour explorer",
+        pricing: {
+          cta: "Discuter sur WhatsApp",
+          trial: {
+            badge: "Départ",
+            price: "Démo gratuite · 30 jours",
+            desc: "Créez votre menu de marque et partagez un lien en direct."
+          },
+          pro: {
+            badge: "Restaurant",
+            price: "99 € / mois",
+            desc: "Plateforme complète, mises à jour illimitées et support prioritaire."
+          }
+        },
+        benefits: [
+          { icon: "🎬", title: "Menus vidéo", text: "De vrais plats à l'écran — pas de PDF." },
+          { icon: "📈", title: "Plus de ventes", text: "L'expérience visuelle augmente le panier." },
+          { icon: "🔄", title: "Une carte, tous les QR", text: "Une mise à jour, toutes les tables à jour." },
+          { icon: "💬", title: "Engagement", text: "Favoris, partage et avis intégrés." }
+        ],
+        paths: {
+          guest: {
+            title: "Utilisateur",
+            text: "Parcourez le menu d'exemple du restaurant."
+          },
+          demo: {
+            title: "Démo",
+            text: "Créez un menu d'exemple à votre image."
+          },
+          owner: {
+            title: "Admin",
+            text: "Connectez-vous pour gérer votre restaurant."
+          }
+        }
       },
       owner: {
         brandSub: "Console restaurant",
@@ -940,6 +1104,47 @@ window.I18N = (function () {
         loading: "Lädt…",
         close: "Schließen",
         ok: "OK"
+      },
+      gateway: {
+        title: "Video-Speisekarten\ndie sich selbst verkaufen.",
+        tagline: "Scannen · Sehen · Bestellen",
+        intro:
+          "GastoVision macht aus Ihrer Karte ein mobiles Erlebnis, das Gäste wirklich nutzen. Wählen Sie unten eine Karte und testen Sie selbst — als Gast, Demo oder Admin.",
+        tryHeading: "Selbst ausprobieren",
+        scrollHint: "Wischen zum Entdecken",
+        pricing: {
+          cta: "Per WhatsApp schreiben",
+          trial: {
+            badge: "Einstieg",
+            price: "Kostenlose Demo · 30 Tage",
+            desc: "Branded Menü erstellen und Live-Link teilen."
+          },
+          pro: {
+            badge: "Restaurant",
+            price: "99 € / Monat",
+            desc: "Volle Plattform, unbegrenzte Updates und Priority-Support."
+          }
+        },
+        benefits: [
+          { icon: "🎬", title: "Video-Speisekarten", text: "Echte Gerichte am Screen — keine PDFs." },
+          { icon: "📈", title: "Mehr Umsatz", text: "Visuelle Karten steigern Bon und Vertrauen." },
+          { icon: "🔄", title: "Ein Update, alle QR", text: "Einmal ändern — alle Tische aktuell." },
+          { icon: "💬", title: "Gäste binden", text: "Favoriten, Teilen und Feedback inklusive." }
+        ],
+        paths: {
+          guest: {
+            title: "Gast",
+            text: "Die Beispiel-Speisekarte des Restaurants ansehen."
+          },
+          demo: {
+            title: "Demo",
+            text: "Branded Beispielkarte in Minuten erstellen."
+          },
+          owner: {
+            title: "Admin",
+            text: "Anmelden, um Ihr Restaurant zu verwalten."
+          }
+        }
       },
       owner: {
         brandSub: "Restaurant-Konsole",

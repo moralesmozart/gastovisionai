@@ -51,17 +51,212 @@
 
   /* ------------------------------ State ------------------------------ */
 
+  const BRAND_PALETTES = [
+    {
+      id: "mediterranean",
+      name: "Mediterranean teal",
+      accent: "#14b8a6",
+      accent2: "#2dd4bf",
+      warm: "#fb923c",
+      bg: "#062927",
+      bg2: "#0a3431",
+      bg3: "#0f3f3a"
+    },
+    {
+      id: "sunset",
+      name: "Warm sunset",
+      accent: "#f97316",
+      accent2: "#fb923c",
+      warm: "#fbbf24",
+      bg: "#1c0f0a",
+      bg2: "#2a1610",
+      bg3: "#3d2018"
+    },
+    {
+      id: "vineyard",
+      name: "Vineyard night",
+      accent: "#c084fc",
+      accent2: "#e879f9",
+      warm: "#f472b6",
+      bg: "#140f1f",
+      bg2: "#1e1530",
+      bg3: "#2a1f42"
+    },
+    {
+      id: "ocean",
+      name: "Ocean blue",
+      accent: "#0ea5e9",
+      accent2: "#38bdf8",
+      warm: "#7dd3fc",
+      bg: "#041e2e",
+      bg2: "#0a2a40",
+      bg3: "#103752"
+    },
+    {
+      id: "olive",
+      name: "Olive garden",
+      accent: "#84cc16",
+      accent2: "#a3e635",
+      warm: "#eab308",
+      bg: "#141a0c",
+      bg2: "#1c2410",
+      bg3: "#263318"
+    }
+  ];
+
+  const BRAND_TONES = [
+    {
+      id: "warm",
+      label: "Warm & welcoming",
+      hint: "Friendly, like talking to the owner.",
+      tagline: "Great food, shared with friends"
+    },
+    {
+      id: "fine",
+      label: "Refined & elegant",
+      hint: "Polished language for upscale dining.",
+      tagline: "Fine dining, beautifully served"
+    },
+    {
+      id: "casual",
+      label: "Casual & fun",
+      hint: "Relaxed, street-food energy.",
+      tagline: "Relaxed bites, bold flavours"
+    },
+    {
+      id: "bold",
+      label: "Bold & modern",
+      hint: "Short punchy lines, contemporary vibe.",
+      tagline: "Food that hits different"
+    }
+  ];
+
   function emptyDraft() {
     return {
       restaurant: { name: "", tagline: "" },
+      branding: {
+        logoUrl: null,
+        tone: "warm",
+        paletteId: "mediterranean",
+        setupComplete: false
+      },
       items: [],
       lang: I18N.get() || "en"
     };
   }
 
+  function ensureDraftBranding(draft) {
+    if (!draft.branding) {
+      draft.branding = emptyDraft().branding;
+    }
+    return draft.branding;
+  }
+
+  function getPalette(id) {
+    return BRAND_PALETTES.find((p) => p.id === id) || BRAND_PALETTES[0];
+  }
+
+  function applyBrandingTheme(draft) {
+    const b = ensureDraftBranding(draft);
+    const pal = getPalette(b.paletteId);
+    const root = document.documentElement;
+    root.style.setProperty("--accent", pal.accent);
+    root.style.setProperty("--accent-2", pal.accent2);
+    root.style.setProperty("--warm", pal.warm);
+    root.style.setProperty("--bg", pal.bg);
+    root.style.setProperty("--bg-2", pal.bg2);
+    root.style.setProperty("--bg-3", pal.bg3);
+    document.body.classList.toggle("gv-branded-demo", !!b.setupComplete);
+  }
+
+  function resetBrandingTheme() {
+    document.documentElement.style.removeProperty("--accent");
+    document.documentElement.style.removeProperty("--accent-2");
+    document.documentElement.style.removeProperty("--warm");
+    document.documentElement.style.removeProperty("--bg");
+    document.documentElement.style.removeProperty("--bg-2");
+    document.documentElement.style.removeProperty("--bg-3");
+    document.body.classList.remove("gv-branded-demo");
+  }
+
+  const WHATSAPP_COUNTRIES = [
+    { dial: "34", flag: "🇪🇸", name: "Spain" },
+    { dial: "351", flag: "🇵🇹", name: "Portugal" },
+    { dial: "33", flag: "🇫🇷", name: "France" },
+    { dial: "39", flag: "🇮🇹", name: "Italy" },
+    { dial: "49", flag: "🇩🇪", name: "Germany" },
+    { dial: "44", flag: "🇬🇧", name: "United Kingdom" },
+    { dial: "31", flag: "🇳🇱", name: "Netherlands" },
+    { dial: "32", flag: "🇧🇪", name: "Belgium" },
+    { dial: "41", flag: "🇨🇭", name: "Switzerland" },
+    { dial: "43", flag: "🇦🇹", name: "Austria" },
+    { dial: "353", flag: "🇮🇪", name: "Ireland" },
+    { dial: "48", flag: "🇵🇱", name: "Poland" },
+    { dial: "46", flag: "🇸🇪", name: "Sweden" },
+    { dial: "47", flag: "🇳🇴", name: "Norway" },
+    { dial: "45", flag: "🇩🇰", name: "Denmark" },
+    { dial: "358", flag: "🇫🇮", name: "Finland" },
+    { dial: "30", flag: "🇬🇷", name: "Greece" },
+    { dial: "1", flag: "🇺🇸", name: "United States / Canada" },
+    { dial: "52", flag: "🇲🇽", name: "Mexico" },
+    { dial: "54", flag: "🇦🇷", name: "Argentina" },
+    { dial: "55", flag: "🇧🇷", name: "Brazil" },
+    { dial: "56", flag: "🇨🇱", name: "Chile" },
+    { dial: "57", flag: "🇨🇴", name: "Colombia" },
+    { dial: "51", flag: "🇵🇪", name: "Peru" },
+    { dial: "593", flag: "🇪🇨", name: "Ecuador" },
+    { dial: "212", flag: "🇲🇦", name: "Morocco" },
+    { dial: "971", flag: "🇦🇪", name: "UAE" },
+    { dial: "61", flag: "🇦🇺", name: "Australia" },
+    { dial: "81", flag: "🇯🇵", name: "Japan" },
+    { dial: "86", flag: "🇨🇳", name: "China" },
+    { dial: "91", flag: "🇮🇳", name: "India" }
+  ];
+
+  const STORAGE_WHATSAPP = "gv.demo.whatsapp";
+
+  function loadWhatsAppPrefs() {
+    const raw = GV.loadJson(STORAGE_WHATSAPP, null);
+    if (raw && typeof raw === "object" && raw.dial) {
+      return {
+        dial: String(raw.dial).replace(/\D/g, ""),
+        number: String(raw.number || "").replace(/\D/g, "")
+      };
+    }
+    const legacy = String(raw || "").replace(/\D/g, "");
+    if (!legacy) return { dial: "34", number: "" };
+    const sorted = WHATSAPP_COUNTRIES.slice().sort((a, b) => b.dial.length - a.dial.length);
+    for (let i = 0; i < sorted.length; i++) {
+      const c = sorted[i];
+      if (legacy.startsWith(c.dial) && legacy.length > c.dial.length) {
+        return { dial: c.dial, number: legacy.slice(c.dial.length) };
+      }
+    }
+    return { dial: "34", number: legacy };
+  }
+
+  function saveWhatsAppPrefs(prefs) {
+    GV.saveJson(STORAGE_WHATSAPP, {
+      dial: prefs.dial,
+      number: prefs.number
+    });
+  }
+
+  function buildWhatsAppShareUrl(dialCode, nationalNumber, demoUrl) {
+    const dial = String(dialCode || "").replace(/\D/g, "");
+    const national = String(nationalNumber || "").replace(/\D/g, "");
+    if (!dial || !national) return "";
+    const full = dial + national;
+    const msg =
+      "Hi! Here's our digital menu — take a look: " + (demoUrl || window.location.href);
+    return "https://wa.me/+" + full + "?text=" + encodeURIComponent(msg);
+  }
+
   function loadDraft() {
     const d = GV.loadJson(STORAGE_DRAFT, null);
-    return d && d.items ? d : emptyDraft();
+    if (!d || !d.items) return emptyDraft();
+    ensureDraftBranding(d);
+    return d;
   }
   function saveDraft(draft) {
     GV.saveJson(STORAGE_DRAFT, draft);
@@ -520,14 +715,23 @@
       photoFilter: it.photoFilter || "pro"
     }));
 
+    const b = ensureDraftBranding(draft);
+    const toneRow = BRAND_TONES.find((t) => t.id === b.tone) || BRAND_TONES[0];
+    const defaultTag =
+      draft.restaurant.tagline ||
+      toneRow.tagline ||
+      "Demo menu by GastoVision";
+
     return {
       restaurant: {
         name: draft.restaurant.name || "Your Restaurant",
-        tagline: fanOut(
-          { [lang]: draft.restaurant.tagline || "Demo menu by GastoVision" },
-          "Demo menu by GastoVision"
-        ),
-        hero: hero
+        tagline: fanOut({ [lang]: defaultTag }, "Demo menu by GastoVision"),
+        hero: hero,
+        logoUrl: b.logoUrl || null,
+        branding: {
+          tone: b.tone,
+          paletteId: b.paletteId
+        }
       },
       categories: allCategories.length
         ? allCategories
@@ -633,16 +837,40 @@
 
   /* ------------------ Load published demo from URL ------------------ */
 
-  /* Re-entry guard. setData() in applyDemoData triggers route() which
-   * re-runs the route hook → loadPublishedFromHash again. The flag stops
-   * an infinite loop in that handoff. */
+  /* Guards against re-entry while applyDemoData runs and against reloading
+   * the same published payload on every hashchange to #/demo/v. */
   let _applyingDemo = false;
+  let _loadedDemoKey = null;
+
+  function readGvDParam() {
+    try {
+      return new URLSearchParams(location.search).get("gv_d");
+    } catch (_) {
+      const m = location.search.match(/[?&]gv_d=([^&]*)/);
+      return m ? decodeURIComponent(m[1]) : null;
+    }
+  }
+
+  function demoPayloadKey(rest, compressed) {
+    if (compressed) {
+      return (
+        "url:" +
+        compressed.length +
+        ":" +
+        compressed.slice(0, 40) +
+        compressed.slice(-40)
+      );
+    }
+    const localId =
+      rest[1] === "v" && rest[2] ? String(rest[2]).split("?")[0] : "";
+    return localId ? "local:" + localId : "";
+  }
 
   async function loadPublishedFromHash(rest) {
     if (_applyingDemo) return;
 
     /* 1) Primary: ?gv_d=…#/demo/v (payload is encodeURIComponent-safe). */
-    let compressed = new URLSearchParams(location.search).get("gv_d");
+    let compressed = readGvDParam();
 
     /* 2) Legacy: #/demo/v?d=… (URLSearchParams turned "+" into spaces — we heal below). */
     if (!compressed) {
@@ -651,6 +879,21 @@
       if (q !== -1) {
         compressed = new URLSearchParams(hash.slice(q + 1)).get("d");
       }
+    }
+
+    const payloadKey = demoPayloadKey(rest, compressed);
+
+    if (
+      payloadKey &&
+      payloadKey === _loadedDemoKey &&
+      document.body.classList.contains("gv-demo-mode")
+    ) {
+      hideWizardChrome();
+      /* Already applied — leave #/demo/v so we don't reload on every route(). */
+      if (/^#\/?demo\/v/.test(location.hash || "")) {
+        location.replace(location.pathname + location.search + "#/");
+      }
+      return;
     }
 
     if (compressed) {
@@ -662,8 +905,10 @@
         }
         if (!json) throw new Error("decompress failed");
         const data = mergePhotoStore(JSON.parse(json));
+        _loadedDemoKey = payloadKey;
         applyDemoData(data);
       } catch (err) {
+        console.error("[demo] publish load failed:", err);
         renderError("Couldn't open this demo. The link looks corrupted.");
       }
       return;
@@ -676,6 +921,7 @@
       const map = GV.loadJson(STORAGE_LOCAL_DEMOS, {});
       const data = map[localId];
       if (data) {
+        _loadedDemoKey = payloadKey;
         applyDemoData(data);
         return;
       }
@@ -689,20 +935,36 @@
   }
 
   function applyDemoData(data) {
+    if (_applyingDemo) return;
     _applyingDemo = true;
     try {
-      GV.setData(data);
+      GV.setDataSilent(data);
       document.body.classList.add("gv-demo-mode");
-      /* Send the user to the welcome screen of the new restaurant.
-       * route() will fire again here, but our route hook short-circuits
-       * because _applyingDemo is still set. After the navigate the
-       * URL is "#/" so the next route() lands on renderWelcome with
-       * the new DATA already in place. */
-      GV.navigate("#/");
+      document.body.classList.remove("gv-guest-mode");
+      if (typeof GV.exitGuestMode === "function") GV.exitGuestMode();
+      if (data.restaurant && data.restaurant.branding) {
+        applyBrandingTheme({
+          branding: {
+            paletteId: data.restaurant.branding.paletteId || "mediterranean",
+            setupComplete: true
+          }
+        });
+      }
+      hideWizardChrome();
+      /* Leave #/demo/v → #/ on first open; keep #/menu etc. if re-applying in place. */
+      const target = location.pathname + location.search + "#/";
+      const hash = location.hash || "";
+      if (/^#\/?demo\/v/.test(hash)) {
+        location.replace(target);
+      } else if (hash === "#/" || hash === "#") {
+        if (typeof GV.renderDemoWelcome === "function") GV.renderDemoWelcome();
+      } else if (typeof GV.render === "function") {
+        GV.render();
+      }
     } finally {
-      setTimeout(() => {
+      setTimeout(function () {
         _applyingDemo = false;
-      }, 50);
+      }, 120);
     }
   }
 
@@ -714,7 +976,9 @@
   function showWizardChrome() {
     document.body.classList.add("body--demo-wizard");
     document.body.classList.remove("body--welcome");
+    document.body.classList.remove("body--gateway");
     if (tabbar) tabbar.classList.add("tabbar--hidden");
+    applyBrandingTheme(loadDraft());
   }
 
   function hideWizardChrome() {
@@ -722,22 +986,23 @@
   }
 
   function stepHeader(currentStep, title, subtitle) {
+    const total = 5;
     const wrap = el("header", { class: "demo-header" });
     wrap.appendChild(
       el("a", {
-        href: "#/",
+        href: "#/portal",
         class: "demo-header__exit",
         html: GV.makeIcon("x") + "<span>Exit demo</span>"
       })
     );
     const steps = el("div", { class: "demo-steps" });
-    [1, 2, 3, 4].forEach((n) => {
+    for (let n = 1; n <= total; n++) {
       const cls =
         "demo-steps__dot" +
         (n === currentStep ? " demo-steps__dot--current" : "") +
         (n < currentStep ? " demo-steps__dot--done" : "");
       steps.appendChild(el("span", { class: cls, text: String(n) }));
-    });
+    }
     wrap.appendChild(steps);
     wrap.appendChild(el("h1", { class: "demo-header__title", text: title }));
     if (subtitle)
@@ -756,12 +1021,148 @@
     );
     wrap.appendChild(el("p", { class: "demo__error-msg", text: msg }));
     wrap.appendChild(
-      el("a", { href: "#/", class: "btn btn--primary", text: "Back home" })
+      el("a", { href: "#/portal", class: "btn btn--primary", text: "Back home" })
     );
     view.appendChild(wrap);
   }
 
-  /* ----------------------- Step 1: Choose input --------------------- */
+  /* ----------------------- Step 1: Brand your demo ------------------ */
+
+  function renderStepSetup() {
+    showWizardChrome();
+    view.innerHTML = "";
+    const draft = loadDraft();
+    const b = ensureDraftBranding(draft);
+
+    const wrap = el("section", { class: "demo" });
+    wrap.appendChild(
+      stepHeader(
+        1,
+        "Make it yours",
+        "Your logo, colours, and tone — we'll style the demo menu to match."
+      )
+    );
+
+    const card = el("div", { class: "demo-card demo-card--brand" });
+
+    const logoLabel = el("label", { class: "demo-field" });
+    logoLabel.appendChild(el("span", { class: "demo-field__label", text: "Your logo" }));
+    const logoRow = el("div", { class: "demo-brand-logo" });
+    const logoPreview = el("div", { class: "demo-brand-logo__box" });
+    if (b.logoUrl) {
+      logoPreview.appendChild(
+        el("img", { class: "demo-brand-logo__img", src: b.logoUrl, alt: "Logo" })
+      );
+    } else {
+      logoPreview.appendChild(el("span", { class: "demo-brand-logo__ph", text: "Logo" }));
+    }
+    logoRow.appendChild(logoPreview);
+    const logoInput = el("input", { type: "file", accept: "image/*", hidden: true });
+    const logoBtn = el("button", {
+      type: "button",
+      class: "btn btn--ghost",
+      text: b.logoUrl ? "Change logo" : "Upload logo"
+    });
+    logoInput.addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        const dataUrl = await fileToCompressedDataUrl(file, 400, 0.85);
+        b.logoUrl = dataUrl;
+        saveDraft(draft);
+        renderStepSetup();
+      } catch (_) {
+        GV.showToast("Couldn't read that image.");
+      }
+    });
+    logoBtn.addEventListener("click", () => logoInput.click());
+    logoBtn.appendChild(logoInput);
+    logoRow.appendChild(logoBtn);
+    logoLabel.appendChild(logoRow);
+    card.appendChild(logoLabel);
+
+    card.appendChild(el("h3", { class: "demo-brand-section", text: "Menu voice" }));
+    const toneGrid = el("div", { class: "demo-tone-grid" });
+    BRAND_TONES.forEach((t) => {
+      const btn = el("button", {
+        type: "button",
+        class:
+          "demo-tone" + (b.tone === t.id ? " demo-tone--active" : ""),
+        onClick: () => {
+          b.tone = t.id;
+          if (!draft.restaurant.tagline) draft.restaurant.tagline = t.tagline;
+          saveDraft(draft);
+          renderStepSetup();
+        }
+      });
+      btn.appendChild(el("strong", { text: t.label }));
+      btn.appendChild(el("span", { text: t.hint }));
+      toneGrid.appendChild(btn);
+    });
+    card.appendChild(toneGrid);
+
+    card.appendChild(el("h3", { class: "demo-brand-section", text: "Colour palette" }));
+    const palGrid = el("div", { class: "demo-palette-grid" });
+    BRAND_PALETTES.forEach((p) => {
+      const btn = el("button", {
+        type: "button",
+        class:
+          "demo-palette" + (b.paletteId === p.id ? " demo-palette--active" : ""),
+        onClick: () => {
+          b.paletteId = p.id;
+          saveDraft(draft);
+          applyBrandingTheme(draft);
+          renderStepSetup();
+        }
+      });
+      const swatches = el("div", { class: "demo-palette__swatches" });
+      swatches.appendChild(
+        el("span", {
+          class: "demo-palette__dot",
+          style: "background:" + p.accent
+        })
+      );
+      swatches.appendChild(
+        el("span", {
+          class: "demo-palette__dot",
+          style: "background:" + p.warm
+        })
+      );
+      swatches.appendChild(
+        el("span", {
+          class: "demo-palette__dot",
+          style: "background:" + p.bg
+        })
+      );
+      btn.appendChild(swatches);
+      btn.appendChild(el("span", { class: "demo-palette__name", text: p.name }));
+      palGrid.appendChild(btn);
+    });
+    card.appendChild(palGrid);
+
+    wrap.appendChild(card);
+
+    const actions = el("div", { class: "demo-actions demo-actions--sticky" });
+    actions.appendChild(
+      el("a", { href: "#/portal", class: "btn btn--ghost", text: "Back" })
+    );
+    actions.appendChild(
+      el("button", {
+        type: "button",
+        class: "btn btn--primary",
+        text: "Continue →",
+        onClick: () => {
+          b.setupComplete = true;
+          saveDraft(draft);
+          GV.navigate("#/demo");
+        }
+      })
+    );
+    wrap.appendChild(actions);
+    view.appendChild(wrap);
+  }
+
+  /* ----------------------- Step 2: Choose input --------------------- */
 
   function renderStep1() {
     showWizardChrome();
@@ -769,7 +1170,7 @@
     const wrap = el("section", { class: "demo demo--center" });
     wrap.appendChild(
       stepHeader(
-        1,
+        2,
         "Let's build a demo menu",
         "Two ways to get started. The whole flow takes ~2 minutes."
       )
@@ -883,7 +1284,7 @@
     const wrap = el("section", { class: "demo" });
     wrap.appendChild(
       stepHeader(
-        2,
+        3,
         "Scan the menu",
         GEMINI_MENU_URL && String(GEMINI_MENU_URL).trim()
           ? "Upload a photo. We read it on-device, then optionally send the text to your server to tidy dishes."
@@ -1112,7 +1513,7 @@
     const wrap = el("section", { class: "demo" });
     wrap.appendChild(
       stepHeader(
-        2,
+        3,
         "Review your dishes",
         "Edit titles, descriptions, prices and categories. Drag to reorder later."
       )
@@ -1283,7 +1684,7 @@
     const wrap = el("section", { class: "demo" });
     wrap.appendChild(
       stepHeader(
-        3,
+        4,
         "Add a photo for each dish",
         "Snap or upload one photo per dish. We'll polish it with a Pro filter."
       )
@@ -1406,7 +1807,7 @@
     const wrap = el("section", { class: "demo" });
     wrap.appendChild(
       stepHeader(
-        4,
+        5,
         "Launch the demo",
         "Name the restaurant, then publish a live link + QR for the owner."
       )
@@ -1610,6 +2011,86 @@
     linkRow.appendChild(copyBtn);
     container.appendChild(linkRow);
 
+    const waBlock = el("div", { class: "demo-whatsapp" });
+    waBlock.appendChild(
+      el("h3", {
+        class: "demo-whatsapp__title",
+        text: "Share on WhatsApp"
+      })
+    );
+    waBlock.appendChild(
+      el("p", {
+        class: "demo-whatsapp__hint",
+        text: "Send the demo link to the owner (or yourself) with one tap."
+      })
+    );
+    const waPrefs = loadWhatsAppPrefs();
+
+    const waRow = el("div", { class: "demo-whatsapp__row" });
+    const prefixField = el("label", { class: "demo-field demo-field--wa-prefix" });
+    prefixField.appendChild(
+      el("span", { class: "demo-field__label", text: "Country" })
+    );
+    const prefixSelect = el("select", {
+      class: "demo-input demo-input--wa-prefix",
+      "aria-label": "Country prefix"
+    });
+    WHATSAPP_COUNTRIES.forEach((c) => {
+      const opt = el("option", {
+        value: c.dial,
+        text: c.flag + " +" + c.dial + " " + c.name
+      });
+      if (c.dial === waPrefs.dial) opt.selected = true;
+      prefixSelect.appendChild(opt);
+    });
+    prefixField.appendChild(prefixSelect);
+    waRow.appendChild(prefixField);
+
+    const numberField = el("label", { class: "demo-field demo-field--wa-number" });
+    numberField.appendChild(
+      el("span", { class: "demo-field__label", text: "Phone number" })
+    );
+    const waNumberInput = el("input", {
+      type: "tel",
+      class: "demo-input",
+      placeholder: "e.g. 600 11 22 33",
+      value: waPrefs.number,
+      inputMode: "numeric",
+      autocomplete: "tel-national"
+    });
+    numberField.appendChild(waNumberInput);
+    waRow.appendChild(numberField);
+    waBlock.appendChild(waRow);
+
+    const waBtn = el("a", {
+      class: "btn btn--primary demo-whatsapp__btn",
+      href: "#",
+      text: "Send via WhatsApp",
+      target: "_blank",
+      rel: "noopener"
+    });
+    function refreshWaHref() {
+      const dial = prefixSelect.value;
+      const number = waNumberInput.value;
+      saveWhatsAppPrefs({ dial: dial, number: number });
+      const url = buildWhatsAppShareUrl(dial, number, published.url);
+      waBtn.href = url || "#";
+      waBtn.classList.toggle("btn--disabled", !url);
+    }
+    prefixSelect.addEventListener("change", refreshWaHref);
+    waNumberInput.addEventListener("input", refreshWaHref);
+    refreshWaHref();
+    waBtn.addEventListener("click", (e) => {
+      if (!buildWhatsAppShareUrl(prefixSelect.value, waNumberInput.value, published.url)) {
+        e.preventDefault();
+        GV.showToast("Choose a country and enter the phone number.");
+        if (!waNumberInput.value.replace(/\D/g, "")) waNumberInput.focus();
+        else prefixSelect.focus();
+      }
+    });
+    waBlock.appendChild(waBtn);
+    container.appendChild(waBlock);
+
     const cta = el("div", { class: "demo-actions" });
     cta.appendChild(
       el("a", {
@@ -1657,11 +2138,17 @@
      * it acts like a normal app session for the demo restaurant. */
 
     if (parts.length === 1) {
-      renderStep1();
+      const draft = loadDraft();
+      if (draft.branding && draft.branding.setupComplete) renderStep1();
+      else GV.navigate("#/demo/setup");
       return true;
     }
     /* Strip query strings from sub so #/demo/v?d=… still matches "v". */
     const sub = (parts[1] || "").split("?")[0];
+    if (sub === "setup") {
+      renderStepSetup();
+      return true;
+    }
     if (sub === "scan") {
       renderStepScan();
       return true;
@@ -1700,19 +2187,32 @@
    *
    * We render the pill once on boot. CSS shows it only when the
    * `gv-demo-mode` body class is on. */
+  function exitDemoViewer(e) {
+    if (e) e.preventDefault();
+    document.body.classList.remove("gv-demo-mode");
+    _loadedDemoKey = null;
+    resetBrandingTheme();
+    if (typeof GV.exitGuestMode === "function") GV.exitGuestMode();
+    if (typeof GV.resetDataSilent === "function") GV.resetDataSilent();
+    try {
+      const url = new URL(location.href);
+      url.searchParams.delete("gv_d");
+      url.hash = "#/portal";
+      history.replaceState(null, "", url.pathname + url.search + url.hash);
+    } catch (_) {
+      location.hash = "#/portal";
+    }
+    GV.render();
+  }
+
   function ensureExitPill() {
     if (document.getElementById("gvDemoExit")) return;
     const pill = document.createElement("a");
     pill.id = "gvDemoExit";
-    pill.href = "#/";
+    pill.href = "#/portal";
     pill.className = "demo-exit-pill";
     pill.textContent = "↩ Exit demo";
-    pill.addEventListener("click", (e) => {
-      e.preventDefault();
-      document.body.classList.remove("gv-demo-mode");
-      GV.resetData();
-      GV.navigate("#/");
-    });
+    pill.addEventListener("click", exitDemoViewer);
     document.body.appendChild(pill);
   }
   ensureExitPill();
@@ -1723,6 +2223,8 @@
     saveDraft,
     clearDraft,
     publishDemo,
-    parseMenuText
+    parseMenuText,
+    resetTheme: resetBrandingTheme,
+    exitDemoViewer
   };
 })();

@@ -485,7 +485,9 @@
 }
 .body--owner .owner-entry-pill,
 .body--demo-wizard .owner-entry-pill,
-.gv-demo-mode .owner-entry-pill {
+.gv-demo-mode .owner-entry-pill,
+.body--welcome .owner-entry-pill,
+.gv-guest-mode .owner-entry-pill {
   display: none;
 }
 @media (max-width: 720px) {

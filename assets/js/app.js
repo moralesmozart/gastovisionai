@@ -116,6 +116,11 @@
   function getCategoryLabel(catId) {
     return I18N.t("welcome.cards." + catId) || catId;
   }
+  function getLocalizedField(obj, fallback) {
+    if (!obj) return fallback || "";
+    if (typeof obj === "string") return obj;
+    return obj[I18N.get()] || obj.en || fallback || "";
+  }
   function formatPrice(item) {
     const price = item.price.toFixed(2).replace(".", I18N.get() === "en" ? "." : ",");
     return item.currency + price;
@@ -379,28 +384,292 @@
 
   /* ------------------------------ Views ------------------------------ */
 
-  function renderWelcome() {
-    document.body.classList.add("body--welcome");
+  /* Fallback if an old cached i18n.js loads without gateway.* keys. */
+  const GATEWAY_COPY = {
+    en: {
+      tagline: "Scan · See · Crave",
+      title: "Video menus\nthat sell themselves.",
+      intro:
+        "GastoVision turns your menu into a mobile experience guests actually use. Pick one of the cards below and test it yourself — as a diner, as a sales demo, or as the restaurant admin.",
+      tryHeading: "Try it yourself",
+      scrollHint: "Swipe to explore",
+      pricing: {
+        cta: "Chat on WhatsApp",
+        trial: {
+          badge: "Starter",
+          price: "Free demo · 30 days",
+          desc: "Build your branded menu, share a live link, and show it to guests."
+        },
+        pro: {
+          badge: "Restaurant",
+          price: "€99 / month",
+          desc: "Full platform, unlimited updates, and priority support for your venue."
+        }
+      },
+      benefits: [
+        {
+          icon: "🎬",
+          title: "Video-first menus",
+          text: "Guests see real dishes — not flat PDFs."
+        },
+        {
+          icon: "📈",
+          title: "Higher sales",
+          text: "Visual menus drive upsells and confidence at the table."
+        },
+        {
+          icon: "🔄",
+          title: "One update, every QR",
+          text: "Change your menu once; all tables stay in sync."
+        },
+        {
+          icon: "💬",
+          title: "Guest engagement",
+          text: "Favourites, sharing, and feedback built in."
+        }
+      ],
+      paths: {
+        guest: { title: "Guest", text: "Browse the sample restaurant menu." },
+        demo: { title: "Demo", text: "Build a branded sample menu in minutes." },
+        owner: { title: "Admin", text: "Sign in to manage your restaurant." }
+      }
+    },
+    es: {
+      tagline: "Escanea · Ve · Pide",
+      title: "Cartas en vídeo\nque venden solas.",
+      intro:
+        "GastoVision convierte tu carta en una experiencia móvil que el cliente usa de verdad. Elige una tarjeta y pruébala tú mismo — como comensal, demo comercial o admin del local.",
+      tryHeading: "Pruébalo tú mismo",
+      scrollHint: "Desliza para ver más",
+      pricing: {
+        cta: "Hablar por WhatsApp",
+        trial: {
+          badge: "Inicio",
+          price: "Demo gratis · 30 días",
+          desc: "Crea tu carta con tu marca, comparte un enlace en vivo y muéstralo a tus clientes."
+        },
+        pro: {
+          badge: "Restaurante",
+          price: "99 € / mes",
+          desc: "Plataforma completa, actualizaciones ilimitadas y soporte prioritario."
+        }
+      },
+      benefits: [
+        {
+          icon: "🎬",
+          title: "Cartas en vídeo",
+          text: "Platos reales en pantalla — no PDFs planos."
+        },
+        {
+          icon: "📈",
+          title: "Más ventas",
+          text: "La carta visual impulsa el ticket y la confianza."
+        },
+        {
+          icon: "🔄",
+          title: "Una carta, todos los QR",
+          text: "Actualizas una vez; todas las mesas al día."
+        },
+        {
+          icon: "💬",
+          title: "Engagement",
+          text: "Favoritos, compartir y feedback integrados."
+        }
+      ],
+      paths: {
+        guest: { title: "Usuario", text: "Explora el menú de muestra del restaurante." },
+        demo: { title: "Demo", text: "Crea una carta de muestra con tu marca." },
+        owner: { title: "Admin", text: "Inicia sesión para gestionar tu local." }
+      }
+    }
+  };
+
+  function gatewayGet(path) {
+    const raw = I18N.t(path);
+    const miss =
+      raw == null ||
+      raw === path ||
+      (typeof raw === "string" && /^gateway\./.test(raw));
+    if (!miss) return raw;
+
+    const lang = I18N.get() || "en";
+    const dict = GATEWAY_COPY[lang] || GATEWAY_COPY.en;
+    const node = path.replace(/^gateway\./, "").split(".").reduce(function (acc, key) {
+      return acc && acc[key] !== undefined ? acc[key] : null;
+    }, dict);
+    return node != null ? node : raw;
+  }
+
+  function gatewayBenefits() {
+    const items = gatewayGet("gateway.benefits");
+    return Array.isArray(items) ? items : GATEWAY_COPY.en.benefits;
+  }
+
+  const GATEWAY_HERO_IMAGE = "assets/img/gateway/guest.png";
+  const WHATSAPP_SALES_URL = "https://wa.me/3465649853";
+
+  function gatewayPricingPlan(which) {
+    const prefix = "gateway.pricing." + which + ".";
+    return {
+      badge: gatewayGet(prefix + "badge"),
+      price: gatewayGet(prefix + "price"),
+      desc: gatewayGet(prefix + "desc")
+    };
+  }
+
+  function appendGatewayBenefits(parent) {
+    const grid = el("div", { class: "gateway-benefits" });
+    gatewayBenefits().forEach(function (b, i) {
+      const card = el("div", {
+        class: "gateway-benefit-card",
+        style: "animation-delay:" + (180 + i * 60) + "ms"
+      });
+      card.appendChild(el("span", { class: "gateway-benefit-card__icon", text: b.icon || "✓" }));
+      if (b.title) {
+        card.appendChild(el("h3", { class: "gateway-benefit-card__title", text: b.title }));
+        card.appendChild(el("p", { class: "gateway-benefit-card__text", text: b.text || "" }));
+      } else {
+        card.appendChild(el("p", { class: "gateway-benefit-card__text", text: b.text || "" }));
+      }
+      grid.appendChild(card);
+    });
+    parent.appendChild(grid);
+  }
+
+  function appendGatewayPricing(parent) {
+    const wrap = el("div", { class: "gateway-pricing" });
+    ["trial", "pro"].forEach(function (which) {
+      const plan = gatewayPricingPlan(which);
+      const card = el("div", {
+        class: "gateway-price-card" + (which === "pro" ? " gateway-price-card--featured" : "")
+      });
+      card.appendChild(el("span", { class: "gateway-price-card__badge", text: plan.badge }));
+      card.appendChild(el("p", { class: "gateway-price-card__price", text: plan.price }));
+      card.appendChild(el("p", { class: "gateway-price-card__desc", text: plan.desc }));
+      const cta = el("a", {
+        class: "btn btn--primary gateway-price-card__cta",
+        href: WHATSAPP_SALES_URL,
+        target: "_blank",
+        rel: "noopener noreferrer",
+        text: gatewayGet("gateway.pricing.cta")
+      });
+      card.appendChild(cta);
+      wrap.appendChild(card);
+    });
+    parent.appendChild(wrap);
+  }
+
+  function ensureWhatsAppFab() {
+    let fab = document.getElementById("whatsappFab");
+    if (!fab) {
+      fab = document.createElement("a");
+      fab.id = "whatsappFab";
+      fab.className = "whatsapp-fab";
+      fab.href = WHATSAPP_SALES_URL;
+      fab.target = "_blank";
+      fab.rel = "noopener noreferrer";
+      fab.setAttribute("aria-label", "WhatsApp");
+      fab.innerHTML =
+        '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>';
+      document.body.appendChild(fab);
+    }
+    fab.href = WHATSAPP_SALES_URL;
+  }
+
+  function syncWhatsAppFab() {
+    ensureWhatsAppFab();
+    const fab = document.getElementById("whatsappFab");
+    if (fab) fab.hidden = !document.body.classList.contains("body--gateway");
+  }
+  const GUEST_MODE_KEY = "gv.guestMode";
+  const GUEST_APP_SEGMENTS = ["menu", "item", "cart", "favorites", "video", "feedback"];
+
+  function isGuestMode() {
+    return (
+      document.body.classList.contains("gv-guest-mode") ||
+      sessionStorage.getItem(GUEST_MODE_KEY) === "1"
+    );
+  }
+
+  function resetMenuDataSilent() {
+    Object.keys(DATA).forEach((k) => delete DATA[k]);
+    Object.assign(DATA, JSON.parse(JSON.stringify(ORIGINAL_DATA)));
+    const ownerSaved = loadJson("gv.owner.editedData", null);
+    if (ownerSaved && Array.isArray(ownerSaved.items)) {
+      Object.assign(DATA, ownerSaved);
+    }
+  }
+
+  function enterGuestMode(options) {
+    const reset = !options || options.reset !== false;
+    sessionStorage.setItem(GUEST_MODE_KEY, "1");
+    document.body.classList.add("gv-guest-mode");
+    document.body.classList.remove("gv-demo-mode");
+    document.body.classList.remove("body--gateway");
+    if (reset) resetMenuDataSilent();
+    if (window.GV && window.GV.demo && typeof window.GV.demo.resetTheme === "function") {
+      window.GV.demo.resetTheme();
+    }
+  }
+
+  function exitGuestMode() {
+    sessionStorage.removeItem(GUEST_MODE_KEY);
+    document.body.classList.remove("gv-guest-mode");
+  }
+
+  /* From portal, #/guest resets sample data then lands on production home #/. */
+  const GATEWAY_PATH_CARDS = [
+    {
+      id: "guest",
+      href: "#/guest",
+      icon: "🍽",
+      image: "assets/img/gateway/guest.png",
+      titleKey: "gateway.paths.guest.title"
+    },
+    {
+      id: "demo",
+      href: "#/demo/setup",
+      icon: "✨",
+      image: "assets/img/gateway/demo.png",
+      titleKey: "gateway.paths.demo.title",
+      highlight: true
+    },
+    {
+      id: "owner",
+      href: "#/owner/login",
+      icon: "🏪",
+      image: "assets/img/gateway/admin.png",
+      titleKey: "gateway.paths.owner.title"
+    }
+  ];
+
+  /* Product home — welcome-style hero + three path cards (guest / demo / admin). */
+  function renderHomeGateway() {
+    exitGuestMode();
+    document.body.classList.add("body--gateway");
+    document.body.classList.remove("body--welcome");
+    document.body.classList.remove("gv-demo-mode");
     tabbar.classList.add("tabbar--hidden");
+    if (window.GV && window.GV.demo && typeof window.GV.demo.resetTheme === "function") {
+      window.GV.demo.resetTheme();
+    }
 
-    const wrap = el("section", { class: "welcome" });
-
+    const wrap = el("section", { class: "welcome welcome--gateway" });
     const hero = el("div", { class: "welcome__hero" });
     hero.appendChild(
       el("div", {
         class: "welcome__bg",
-        style: "background-image:url('" + DATA.restaurant.hero + "')"
+        style: "background-image:url('" + GATEWAY_HERO_IMAGE + "')"
       })
     );
     hero.appendChild(el("div", { class: "welcome__bg-overlay" }));
 
     const content = el("div", { class: "welcome__content" });
-
     content.appendChild(
-      el("p", { class: "welcome__kicker", text: I18N.t("welcome.kicker") })
+      el("p", { class: "welcome__kicker", text: gatewayGet("gateway.tagline") })
     );
 
-    const titleText = I18N.t("welcome.title");
+    const titleText = String(gatewayGet("gateway.title") || "");
     const titleEl = el("h1", { class: "welcome__title" });
     titleText.split("\n").forEach((line, i) => {
       const span = el("span", { class: "welcome__title-line", text: line });
@@ -408,6 +677,110 @@
       titleEl.appendChild(span);
     });
     content.appendChild(titleEl);
+
+    appendGatewayBenefits(content);
+    content.appendChild(
+      el("p", { class: "gateway-intro", text: gatewayGet("gateway.intro") })
+    );
+    appendGatewayPricing(content);
+    content.appendChild(
+      el("h2", { class: "gateway-try-heading", text: gatewayGet("gateway.tryHeading") })
+    );
+
+    const carousel = el("div", { class: "carousel" });
+    const track = el("div", { class: "carousel__track" });
+    GATEWAY_PATH_CARDS.forEach((card, i) => {
+      const link = el("a", {
+        class: "wcard" + (card.highlight ? " wcard--highlight" : ""),
+        href: card.href,
+        style: "animation-delay:" + (240 + i * 70) + "ms"
+      });
+      link.appendChild(
+        el("div", {
+          class: "wcard__bg",
+          style: "background-image:url('" + card.image + "')"
+        })
+      );
+      link.appendChild(el("div", { class: "wcard__shade" }));
+      link.appendChild(el("span", { class: "wcard__icon", text: card.icon }));
+      link.appendChild(
+        el("h3", { class: "wcard__title", text: gatewayGet(card.titleKey) })
+      );
+      track.appendChild(link);
+    });
+    carousel.appendChild(track);
+    content.appendChild(carousel);
+    content.appendChild(
+      el("p", { class: "welcome__hint", text: gatewayGet("gateway.scrollHint") })
+    );
+    wrap.appendChild(hero);
+    wrap.appendChild(content);
+    view.replaceChildren(wrap);
+    syncWhatsAppFab();
+  }
+
+  function categoryCardImage(catId) {
+    const item = (DATA.items || []).find((it) => it.category === catId);
+    const url = item ? getPhotoUrl(item) : null;
+    if (url) return url;
+    const stock = {
+      starters: "assets/img/dishes/ham-croquettes.jpg",
+      mains: "assets/img/dishes/prosciutto-pizza.jpg",
+      drinks: "assets/img/dishes/smoked-old-fashioned.jpg",
+      desserts: "assets/img/dishes/burnt-cheesecake.jpg",
+      specials: "assets/img/dishes/mole-tasting.jpg"
+    };
+    return stock[catId] || "";
+  }
+
+  function buildWelcomeView(opts) {
+    const isDemo = opts && opts.demo;
+    const wrap = el("section", { class: "welcome" });
+    const hero = el("div", { class: "welcome__hero" });
+    const heroUrl =
+      (DATA.restaurant && DATA.restaurant.hero) || categoryCardImage("mains");
+    if (heroUrl) {
+      hero.appendChild(
+        el("div", {
+          class: "welcome__bg",
+          style: "background-image:url('" + heroUrl + "')"
+        })
+      );
+    }
+    hero.appendChild(el("div", { class: "welcome__bg-overlay" }));
+
+    const content = el("div", { class: "welcome__content" });
+
+    const restName =
+      (DATA.restaurant && DATA.restaurant.name) || "Restaurant";
+    const restTagline = getLocalizedField(
+      DATA.restaurant && DATA.restaurant.tagline,
+      ""
+    );
+
+    if (isDemo) {
+      content.appendChild(el("p", { class: "welcome__kicker", text: restName }));
+      const demoTitle = restTagline || restName;
+      const titleEl = el("h1", { class: "welcome__title" });
+      demoTitle.split("\n").forEach((line, i) => {
+        const span = el("span", { class: "welcome__title-line", text: line });
+        span.style.animationDelay = 120 + i * 90 + "ms";
+        titleEl.appendChild(span);
+      });
+      content.appendChild(titleEl);
+    } else {
+      content.appendChild(
+        el("p", { class: "welcome__kicker", text: I18N.t("welcome.kicker") })
+      );
+      const titleText = I18N.t("welcome.title");
+      const titleEl = el("h1", { class: "welcome__title" });
+      titleText.split("\n").forEach((line, i) => {
+        const span = el("span", { class: "welcome__title-line", text: line });
+        span.style.animationDelay = 120 + i * 90 + "ms";
+        titleEl.appendChild(span);
+      });
+      content.appendChild(titleEl);
+    }
 
     content.appendChild(
       el("p", { class: "welcome__sub", text: I18N.t("welcome.subtitle") })
@@ -418,7 +791,7 @@
     const track = el("div", { class: "carousel__track" });
 
     /* One representative AI dish photo per category for the welcome cards. */
-    const cardImages = {
+    const stockCardImages = {
       starters: "assets/img/dishes/ham-croquettes.jpg",
       mains: "assets/img/dishes/prosciutto-pizza.jpg",
       drinks: "assets/img/dishes/smoked-old-fashioned.jpg",
@@ -426,22 +799,28 @@
       specials: "assets/img/dishes/mole-tasting.jpg"
     };
 
-    DATA.categories.forEach((c, i) => {
+    (DATA.categories || []).forEach((c, i) => {
+      const img = isDemo ? categoryCardImage(c.id) : stockCardImages[c.id];
       const link = el("a", {
         class: "wcard",
         href: "#/menu/" + c.id,
         style: "animation-delay:" + (240 + i * 70) + "ms"
       });
-      link.appendChild(
-        el("div", {
-          class: "wcard__bg",
-          style: "background-image:url('" + cardImages[c.id] + "')"
-        })
-      );
+      if (img) {
+        link.appendChild(
+          el("div", {
+            class: "wcard__bg",
+            style: "background-image:url('" + img + "')"
+          })
+        );
+      }
       link.appendChild(el("div", { class: "wcard__shade" }));
       link.appendChild(el("span", { class: "wcard__icon", text: c.icon }));
       link.appendChild(
-        el("h3", { class: "wcard__title", text: I18N.t("welcome.cards." + c.id) })
+        el("h3", {
+          class: "wcard__title",
+          text: isDemo ? getCategoryLabel(c.id) : I18N.t("welcome.cards." + c.id)
+        })
       );
       track.appendChild(link);
     });
@@ -464,12 +843,36 @@
 
     wrap.appendChild(hero);
     wrap.appendChild(content);
+    return wrap;
+  }
 
-    view.replaceChildren(wrap);
+  function renderWelcome() {
+    document.body.classList.remove("body--gateway");
+    document.body.classList.remove("gv-demo-mode");
+    document.body.classList.add("body--welcome");
+    document.body.classList.add("gv-guest-mode");
+    tabbar.classList.add("tabbar--hidden");
+    view.replaceChildren(buildWelcomeView({ demo: false }));
+  }
+
+  function renderDemoWelcome() {
+    document.body.classList.remove("body--gateway");
+    document.body.classList.add("body--welcome");
+    document.body.classList.add("gv-demo-mode");
+    tabbar.classList.remove("tabbar--hidden");
+    view.replaceChildren(buildWelcomeView({ demo: true }));
+  }
+
+  function markGuestAppView() {
+    document.body.classList.remove("body--gateway");
+    document.body.classList.remove("body--welcome");
+    if (!document.body.classList.contains("gv-demo-mode")) {
+      document.body.classList.add("gv-guest-mode");
+    }
   }
 
   function renderMenu(activeCat) {
-    document.body.classList.remove("body--welcome");
+    markGuestAppView();
     tabbar.classList.remove("tabbar--hidden");
     setActiveTab("menu");
 
@@ -480,16 +883,24 @@
 
     /* Sticky header with category pills */
     const header = el("div", { class: "menu__header" });
-    header.appendChild(
-      el("div", { class: "menu__heading" }, [
-        el("p", { class: "menu__rest", text: DATA.restaurant.name }),
-        el("h1", {
-          class: "menu__title",
-          text:
-            DATA.restaurant.tagline[I18N.get()] || DATA.restaurant.tagline.en
+    const headingKids = [];
+    if (DATA.restaurant.logoUrl) {
+      headingKids.push(
+        el("img", {
+          class: "menu__logo",
+          src: DATA.restaurant.logoUrl,
+          alt: DATA.restaurant.name || "Logo"
         })
-      ])
+      );
+    }
+    headingKids.push(el("p", { class: "menu__rest", text: DATA.restaurant.name }));
+    headingKids.push(
+      el("h1", {
+        class: "menu__title",
+        text: getLocalizedField(DATA.restaurant && DATA.restaurant.tagline, "")
+      })
     );
+    header.appendChild(el("div", { class: "menu__heading" }, headingKids));
 
     const pills = el("div", { class: "pills" });
     cats.forEach((c) => {
@@ -523,7 +934,7 @@
       location.hash = "#/menu";
       return;
     }
-    document.body.classList.remove("body--welcome");
+    markGuestAppView();
     tabbar.classList.remove("tabbar--hidden");
 
     const wrap = el("section", { class: "detail" });
@@ -609,7 +1020,7 @@
   }
 
   function renderFavorites() {
-    document.body.classList.remove("body--welcome");
+    markGuestAppView();
     tabbar.classList.remove("tabbar--hidden");
     setActiveTab("favorites");
 
@@ -637,7 +1048,7 @@
   }
 
   function renderCart() {
-    document.body.classList.remove("body--welcome");
+    markGuestAppView();
     tabbar.classList.remove("tabbar--hidden");
     setActiveTab("cart");
 
@@ -739,7 +1150,7 @@
   }
 
   function renderVideoFeed() {
-    document.body.classList.remove("body--welcome");
+    markGuestAppView();
     tabbar.classList.remove("tabbar--hidden");
     setActiveTab("video");
 
@@ -832,7 +1243,7 @@
   /* ---------------------- Feedback flow (multi-step) ----------------- */
 
   function renderFeedback(step) {
-    document.body.classList.remove("body--welcome");
+    markGuestAppView();
     tabbar.classList.add("tabbar--hidden");
 
     step = parseInt(step || "1", 10);
@@ -1212,30 +1623,132 @@
     });
   }
 
+  function syncBrandHome() {
+    const brand = document.getElementById("brandHome");
+    if (!brand) return;
+    const parts = (location.hash || "").replace(/^#\/?/, "").split("/").filter(Boolean);
+    const onPortal = parts[0] === "portal";
+    const onGuestApp =
+      parts.length === 0 ||
+      GUEST_APP_SEGMENTS.indexOf(parts[0]) !== -1 ||
+      parts[0] === "item";
+    if (document.body.classList.contains("gv-demo-mode")) {
+      brand.href = "#/";
+      brand.setAttribute("aria-label", "Demo restaurant home");
+    } else if (onGuestApp) {
+      brand.href = "#/portal";
+      brand.setAttribute("aria-label", "Back to GastoVision home");
+    } else if (onPortal) {
+      brand.href = "#/portal";
+      brand.setAttribute("aria-label", "GastoVision home");
+    } else {
+      brand.href = "#/portal";
+      brand.setAttribute("aria-label", "GastoVision home");
+    }
+  }
+
+  function redirectPublishedDemoIfNeeded() {
+    let gvD = null;
+    try {
+      gvD = new URLSearchParams(location.search).get("gv_d");
+    } catch (_) {
+      const m = location.search.match(/[?&]gv_d=([^&]*)/);
+      gvD = m ? m[1] : null;
+    }
+    if (!gvD) return false;
+    const hash = location.hash || "#/";
+    if (/^#\/?portal/.test(hash)) return false;
+    /* Demo already loaded — allow #/menu, #/cart, #/item/… without reloading. */
+    if (document.body.classList.contains("gv-demo-mode")) return false;
+    if (/^#\/?demo\/v/.test(hash)) return false;
+    if (hash === "#/" || hash === "#") {
+      location.hash = "#/demo/v";
+      return true;
+    }
+    if (!/^#\/?demo\/v/.test(hash)) {
+      location.hash = "#/demo/v";
+      return true;
+    }
+    return false;
+  }
+
   function route() {
+    if (redirectPublishedDemoIfNeeded()) return;
     logGuestVisitForAnalytics();
     const hash = location.hash || "#/";
     const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
     window.scrollTo(0, 0);
 
-    /* Plug-in routes (e.g. demo mode). The first hook to return true wins. */
-    const hooks = (window.GV && window.GV._routeHooks) || [];
-    for (let i = 0; i < hooks.length; i++) {
-      try {
-        if (hooks[i](parts, hash) === true) return;
-      } catch (err) {
-        console.error("GV route hook threw:", err);
+    try {
+      /* Plug-in routes (e.g. demo mode). The first hook to return true wins. */
+      const hooks = (window.GV && window.GV._routeHooks) || [];
+      for (let i = 0; i < hooks.length; i++) {
+        try {
+          if (hooks[i](parts, hash) === true) return;
+        } catch (err) {
+          console.error("GV route hook threw:", err);
+        }
       }
-    }
 
-    if (parts.length === 0) return renderWelcome();
-    if (parts[0] === "menu") return renderMenu(parts[1]);
-    if (parts[0] === "item") return renderItem(parts[1]);
-    if (parts[0] === "favorites") return renderFavorites();
-    if (parts[0] === "cart") return renderCart();
-    if (parts[0] === "video") return renderVideoFeed();
-    if (parts[0] === "feedback") return renderFeedback(parts[1]);
-    return renderWelcome();
+      /* Deep links to the diner app (QR codes, bookmarks) open the full guest experience. */
+      if (parts.length > 0 && GUEST_APP_SEGMENTS.indexOf(parts[0]) !== -1) {
+        if (!document.body.classList.contains("gv-demo-mode")) {
+          sessionStorage.setItem(GUEST_MODE_KEY, "1");
+          document.body.classList.add("gv-guest-mode");
+        }
+      }
+
+      if (parts[0] === "portal") {
+        exitGuestMode();
+        renderHomeGateway();
+        return;
+      }
+      if (parts[0] === "guest" || parts[0] === "sample") {
+        enterGuestMode({ reset: true });
+        location.replace(location.pathname + location.search + "#/");
+        return;
+      }
+
+      /* #/ = production guest welcome (menu, cart, feedback, … use their own hashes). */
+      if (parts.length === 0) {
+        if (document.body.classList.contains("gv-demo-mode")) {
+          renderDemoWelcome();
+          return;
+        }
+        enterGuestMode({ reset: false });
+        renderWelcome();
+        return;
+      }
+      if (parts[0] === "menu") {
+        renderMenu(parts[1]);
+        return;
+      }
+      if (parts[0] === "item") {
+        renderItem(parts[1]);
+        return;
+      }
+      if (parts[0] === "favorites") {
+        renderFavorites();
+        return;
+      }
+      if (parts[0] === "cart") {
+        renderCart();
+        return;
+      }
+      if (parts[0] === "video") {
+        renderVideoFeed();
+        return;
+      }
+      if (parts[0] === "feedback") {
+        renderFeedback(parts[1]);
+        return;
+      }
+      enterGuestMode({ reset: false });
+      renderWelcome();
+    } finally {
+      syncBrandHome();
+      syncWhatsAppFab();
+    }
   }
 
   /* Last hash we logged for analytics (avoid double-count on I18N re-render). */
@@ -1303,6 +1816,10 @@
   /* Snapshot of the original menu so demo mode can reset back to it. */
   const ORIGINAL_DATA = JSON.parse(JSON.stringify(DATA));
 
+  function resetDataSilent() {
+    resetMenuDataSilent();
+  }
+
   window.GV = {
     /* DOM helpers */
     el,
@@ -1316,11 +1833,19 @@
       return DATA;
     },
     setData(newData) {
-      /* Replace DATA's contents in place so existing references stay live. */
       Object.keys(DATA).forEach((k) => delete DATA[k]);
       Object.assign(DATA, newData);
       route();
     },
+    setDataSilent(newData) {
+      Object.keys(DATA).forEach((k) => delete DATA[k]);
+      Object.assign(DATA, newData);
+    },
+    renderDemoWelcome,
+    enterGuestMode,
+    exitGuestMode,
+    isGuestMode,
+    resetDataSilent,
     resetData() {
       Object.keys(DATA).forEach((k) => delete DATA[k]);
       Object.assign(DATA, JSON.parse(JSON.stringify(ORIGINAL_DATA)));
@@ -1375,10 +1900,19 @@
       Object.keys(DATA).forEach((k) => delete DATA[k]);
       Object.assign(DATA, ownerSaved);
     }
+    if (sessionStorage.getItem(GUEST_MODE_KEY) === "1") {
+      document.body.classList.add("gv-guest-mode");
+    }
     I18N.set(I18N.detect());
     setupLanguagePicker();
     updateCartCount();
     window.addEventListener("hashchange", route);
+    /* Bare site URL → product portal; #/ stays the production guest welcome. */
+    const h = location.hash;
+    if (!h || h === "#") {
+      location.replace(location.pathname + location.search + "#/portal");
+      return;
+    }
     route();
   }
 

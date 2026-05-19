@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1"
     />
-    <meta name="theme-color" content="#062927" />
+    <meta name="theme-color" content="#062927" id="themeColor" />
     <title>GastoVision — Video menus that sell themselves</title>
     <meta
       name="description"
@@ -16,7 +16,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,500&family=Instrument+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="assets/css/styles.css" />
@@ -27,7 +27,7 @@
     <div id="app">
       <!-- Top bar: logo + language picker -->
       <header class="topbar" id="topbar">
-        <a href="#/" class="brand" aria-label="GastoVision home">
+        <a href="#/portal" class="brand" aria-label="GastoVision home" id="brandHome">
           <span class="brand__mark" aria-hidden="true">
             <svg viewBox="0 0 32 32" width="22" height="22">
               <defs>
@@ -141,7 +141,7 @@
       <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
       <!-- Hidden entry to demo mode (sales tool). -->
-      <a href="#/demo" class="demo-entry-pill" id="demoEntry" title="Demo mode (sales)">
+      <a href="#/demo/setup" class="demo-entry-pill" id="demoEntry" title="Demo mode (sales)">
         ✨ Demo
       </a>
       <a href="#/owner/login" class="owner-entry-pill" id="ownerEntry" title="Owner / restaurant console">
@@ -149,13 +149,13 @@
       </a>
     </div>
 
-    <script src="assets/js/i18n.js"></script>
-    <script src="assets/js/data.js"></script>
-    <script src="assets/js/app.js"></script>
+    <script src="assets/js/i18n.js?v=20260529"></script>
+    <script src="assets/js/data.js?v=20260529"></script>
+    <script src="assets/js/app.js?v=20260529"></script>
     <script>
       window.GV_GEMINI_MENU_URL = "https://gastovision-gemini-menu.mozartmorales.workers.dev/";
     </script>
-    <script src="assets/js/demo.js"></script>
+    <script src="assets/js/demo.js?v=20260529"></script>
     <script src="assets/js/owner.js"></script>
   </body>
 </html>
