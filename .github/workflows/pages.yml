@@ -27,6 +27,14 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Inject Supabase config
+        run: |
+          {
+            echo "window.GV_SUPABASE_URL = \"${{ secrets.GV_SUPABASE_URL }}\";"
+            echo "window.GV_SUPABASE_ANON_KEY = \"${{ secrets.GV_SUPABASE_ANON_KEY }}\";"
+            echo "window.GV_SUPABASE_SHORT_BASE = \"${{ secrets.GV_SUPABASE_SHORT_BASE }}\";"
+          } > assets/js/config.js
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

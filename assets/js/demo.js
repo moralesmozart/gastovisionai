@@ -740,13 +740,77 @@
     };
   }
 
-  /* ------------------ Publish: encode into URL ---------------------- */
+  /* ------------------ Publish: Supabase (preferred) or URL ---------------- */
 
-  /* Serialize a published demo as ?gv_d=<encodeURIComponent(compressed)>#/demo/v
-   * so "+" and other characters in the LZ payload are not mangled by
-   * URLSearchParams (+ → space). If the result is too long for a comfortable
-   * QR scan, persist to localStorage instead and return a same-device-only URL. */
+  function showDemoLoading(message) {
+    hideWizardChrome();
+    const wrap = el("section", { class: "demo demo--loading" });
+    wrap.appendChild(
+      el("p", {
+        class: "demo__loading-text",
+        text: message || "Loading demo…"
+      })
+    );
+    view.replaceChildren(wrap);
+  }
+
+  async function publishDemoToSupabase(draft) {
+    if (!window.GVSupabaseDemo || !window.GVSupabaseDemo.isConfigured()) {
+      return null;
+    }
+    const pubDraft = await draftWithPhotosResized(
+      draft,
+      PHOTO_FOR_URL_MAX_DIM,
+      PHOTO_FOR_URL_QUALITY
+    );
+    const data = draftToData(pubDraft);
+    const saved = await window.GVSupabaseDemo.savePublishedDemo(
+      data,
+      draft.restaurant.name
+    );
+    return {
+      url: saved.appUrl,
+      shortUrl: saved.shortUrl,
+      shortCode: saved.shortCode,
+      mode: "supabase",
+      size: saved.appUrl.length,
+      photosReduced: true,
+      photosReducedNote:
+        "Stored in Supabase. Use the short link or QR — works on any phone."
+    };
+  }
+
+  async function loadPublishedByCode(code) {
+    if (_applyingDemo) return;
+    if (!window.GVSupabaseDemo || !window.GVSupabaseDemo.isConfigured()) {
+      renderError(
+        "Cloud demos are not configured on this site.\nAdd Supabase keys to index.html."
+      );
+      return;
+    }
+    showDemoLoading("Loading your demo…");
+    try {
+      const payload = await window.GVSupabaseDemo.fetchPublishedDemo(code);
+      _loadedDemoKey = "sb:" + code;
+      applyDemoData(mergePhotoStore(payload));
+    } catch (err) {
+      console.error("[demo] Supabase load failed:", err);
+      renderError("Couldn't open this demo.\nThe link may be wrong or expired.");
+    }
+  }
+
+  /* Fallback: ?gv_d=…#/demo/v (LZ in query string) or localStorage on this device. */
   async function publishDemo(draft) {
+    try {
+      const cloud = await publishDemoToSupabase(draft);
+      if (cloud) return cloud;
+    } catch (err) {
+      console.error("[demo] Supabase publish failed, falling back:", err);
+      if (window.GVSupabaseDemo && window.GVSupabaseDemo.isConfigured()) {
+        GV.showToast("Cloud save failed — using URL fallback.");
+      }
+    }
+
     const LZ = await loadLZString();
     const path = location.pathname.replace(/\/$/, "/");
 
@@ -1887,6 +1951,7 @@
           mode: published.mode,
           name: draft.restaurant.name,
           url: published.url,
+          shortUrl: published.shortUrl || published.url,
           createdAt: Date.now()
         });
         GV.saveJson(STORAGE_PUBLISHED, list.slice(0, 10));
@@ -1938,16 +2003,21 @@
     const banner = el("div", {
       class:
         "demo-launch-banner" +
-        (published.mode === "url"
+        (published.mode === "url" || published.mode === "supabase"
           ? " demo-launch-banner--ok"
           : " demo-launch-banner--local")
     });
-    banner.innerHTML =
-      published.mode === "url"
-        ? published.photosStrippedForUrl
-          ? "<strong>Live!</strong> QR works on any phone. <strong>Photos show on this phone only</strong> — open the link below here first, or re-add photos on another device."
-          : "<strong>Live!</strong> Anyone can scan this QR to open your demo on any phone."
-        : "<strong>Demo ready.</strong> The menu is too big for a cross-device QR. Hand the device to the owner, or remove some photos to enable cross-device sharing.";
+    if (published.mode === "supabase") {
+      banner.innerHTML =
+        "<strong>Live!</strong> Saved to Supabase. Share the short link or scan the QR — works on any device.";
+    } else {
+      banner.innerHTML =
+        published.mode === "url"
+          ? published.photosStrippedForUrl
+            ? "<strong>Live!</strong> QR works on any phone. <strong>Photos show on this phone only</strong> — open the link below here first, or re-add photos on another device."
+            : "<strong>Live!</strong> Anyone can scan this QR to open your demo on any phone."
+          : "<strong>Demo ready.</strong> The menu is too big for a cross-device QR. Hand the device to the owner, or remove some photos to enable cross-device sharing.";
+    }
     container.appendChild(banner);
 
     if (published.mode === "url" && published.photosReducedNote && !published.photosStrippedForUrl) {
@@ -1966,9 +2036,10 @@
 
     try {
       const QRious = await loadQRious();
+      const qrValue = published.shortUrl || published.url;
       new QRious({
         element: canvas,
-        value: published.url,
+        value: qrValue,
         size: 320,
         background: "#ffffff",
         foreground: "#062927",
@@ -2010,6 +2081,38 @@
     linkRow.appendChild(linkInput);
     linkRow.appendChild(copyBtn);
     container.appendChild(linkRow);
+
+    if (published.shortUrl && published.shortUrl !== published.url) {
+      const shortRow = el("div", { class: "demo-link demo-link--short" });
+      shortRow.appendChild(
+        el("p", { class: "demo-link__label", text: "Short redirect link" })
+      );
+      const shortInput = el("input", {
+        type: "text",
+        class: "demo-input demo-link__input",
+        readonly: "",
+        value: published.shortUrl
+      });
+      shortInput.addEventListener("focus", () => shortInput.select());
+      const shortCopy = el("button", {
+        type: "button",
+        class: "btn btn--ghost",
+        text: "Copy"
+      });
+      shortCopy.addEventListener("click", () => {
+        try {
+          navigator.clipboard.writeText(published.shortUrl);
+          GV.showToast("Short link copied.");
+        } catch (_) {
+          shortInput.select();
+          document.execCommand("copy");
+          GV.showToast("Short link copied.");
+        }
+      });
+      shortRow.appendChild(shortInput);
+      shortRow.appendChild(shortCopy);
+      container.appendChild(shortRow);
+    }
 
     const waBlock = el("div", { class: "demo-whatsapp" });
     waBlock.appendChild(
@@ -2223,6 +2326,7 @@
     saveDraft,
     clearDraft,
     publishDemo,
+    loadPublishedByCode,
     parseMenuText,
     resetTheme: resetBrandingTheme,
     exitDemoViewer

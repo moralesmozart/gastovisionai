@@ -1679,6 +1679,16 @@
     const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean);
     window.scrollTo(0, 0);
 
+    /* Cloud demo short link: #/d/abc1234 */
+    if (parts[0] === "d" && parts[1]) {
+      if (window.GV && window.GV.demo && typeof window.GV.demo.loadPublishedByCode === "function") {
+        window.GV.demo.loadPublishedByCode(parts[1].split("?")[0]);
+        syncBrandHome();
+        syncWhatsAppFab();
+        return;
+      }
+    }
+
     try {
       /* Plug-in routes (e.g. demo mode). The first hook to return true wins. */
       const hooks = (window.GV && window.GV._routeHooks) || [];

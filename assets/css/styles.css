@@ -2217,6 +2217,26 @@ a {
   line-height: 1.45;
   color: var(--text-mute);
 }
+.demo--loading {
+  padding: 48px 24px;
+  text-align: center;
+}
+.demo__loading-text {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 15px;
+}
+.demo-link--short {
+  margin-top: 10px;
+}
+.demo-link__label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
 .demo-qr {
   display: flex;
   justify-content: center;
