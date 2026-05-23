@@ -1,4 +1,4 @@
-# Cloudflare Worker — POST OCR text to Gemini (text-only generateContent; no image API).
+# Cloudflare Worker — menu photo or OCR text → Gemini → structured dishes JSON.
 #
 #   cd workers/gemini-menu
 #   npm i -g wrangler   # or use npx wrangler

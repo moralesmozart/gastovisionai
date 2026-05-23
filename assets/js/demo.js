@@ -1,8 +1,8 @@
 /* GastoVision — Demo Mode
  *
  * A 4-step wizard the salesperson uses in front of a restaurant owner:
- *   1. Scan menu photo — on-device OCR (Tesseract), optional Gemini text pass
- *      (window.GV_GEMINI_MENU_URL) to structure OCR into dishes, or add manually.
+ *   1. Scan menu photo — Gemini vision via worker when GV_GEMINI_MENU_URL is set;
+ *      fallback: on-device OCR (Tesseract) + optional Gemini text pass, or manual.
  *   2. Edit the extracted items (titles, descriptions, prices, categories).
  *   3. Add photos per dish (compressed + CSS "pro" filter).
  *   4. Publish: name the restaurant, generate a live URL + QR code.
@@ -45,9 +45,13 @@
   const LZSTRING_CDN =
     "https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js";
 
-  /* POST { text, lang? } → { items: [...] } — server runs Gemini on OCR text only (no image). */
+  /* POST { imageBase64, lang? } or { text, lang? } → { items: [...] } via Cloudflare worker. */
   const GEMINI_MENU_URL =
     (typeof window !== "undefined" && window.GV_GEMINI_MENU_URL) || "";
+
+  function hasGeminiMenuProxy() {
+    return !!(GEMINI_MENU_URL && String(GEMINI_MENU_URL).trim());
+  }
 
   /* ------------------------------ State ------------------------------ */
 
@@ -312,6 +316,34 @@
     return "€";
   }
 
+  const DRAFT_LANGS = ["en", "es", "pt", "fr", "de"];
+
+  /** Mirror one string into all draft locale keys (avoids empty edit fields after language switch). */
+  function spreadDraftLang(text) {
+    const v = String(text || "");
+    const out = {};
+    DRAFT_LANGS.forEach(function (l) {
+      out[l] = v;
+    });
+    return out;
+  }
+
+  function resolveDraftLocalized(obj, lang) {
+    if (!obj) return "";
+    if (typeof obj === "string") return obj;
+    const prefer = lang || I18N.get() || "en";
+    if (obj[prefer]) return obj[prefer];
+    for (let i = 0; i < DRAFT_LANGS.length; i++) {
+      const k = DRAFT_LANGS[i];
+      if (obj[k]) return obj[k];
+    }
+    const keys = Object.keys(obj);
+    for (let j = 0; j < keys.length; j++) {
+      if (obj[keys[j]]) return obj[keys[j]];
+    }
+    return "";
+  }
+
   function geminiProxyRowsToDraftItems(rows, lang) {
     const allowed = new Set(["starters", "mains", "drinks", "desserts", "specials"]);
     const out = [];
@@ -331,8 +363,8 @@
       out.push({
         id: uid(),
         category: category,
-        title: { [lang]: title },
-        description: { [lang]: desc },
+        title: spreadDraftLang(title),
+        description: spreadDraftLang(desc),
         price: priceNum,
         currency: mapProxyCurrencyToSymbol(row.currency),
         tags: [],
@@ -343,21 +375,25 @@
     return out;
   }
 
-  async function fetchMenuItemsFromGeminiText(ocrText, lang) {
+  function parseMenuImagePayload(dataUrl) {
+    const raw = String(dataUrl || "");
+    const m = raw.match(/^data:([^;]+);base64,(.+)$/);
+    if (m) return { mimeType: m[1], imageBase64: m[2] };
+    return { mimeType: "image/jpeg", imageBase64: raw };
+  }
+
+  async function postGeminiWorker(body, onProgress) {
     const endpoint = String(GEMINI_MENU_URL || "").trim();
     if (!endpoint) throw new Error("no GEMINI_MENU_URL");
-
-    const text = String(ocrText || "").trim().slice(0, 45000);
-    if (text.length < 8) throw new Error("empty OCR text");
+    if (typeof onProgress === "function") onProgress(15);
 
     const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text: text,
-        lang: lang || "en"
-      })
+      body: JSON.stringify(body)
     });
+
+    if (typeof onProgress === "function") onProgress(85);
 
     const rawText = await res.text();
     let payload;
@@ -368,15 +404,85 @@
     }
 
     if (!res.ok) {
+      const detail = payload && payload.detail ? " — " + payload.detail : "";
       throw new Error(
-        (payload && payload.error) || "Menu proxy error " + res.status
+        ((payload && payload.error) || "Menu proxy error " + res.status) + detail
       );
     }
     if (payload.error) throw new Error(String(payload.error));
 
+    if (typeof onProgress === "function") onProgress(100);
+    return payload;
+  }
+
+  async function postMenuProxy(body, onProgress) {
+    const payload = await postGeminiWorker(body, onProgress);
     const rows = payload.items;
     if (!Array.isArray(rows)) throw new Error("Menu proxy returned no items array.");
+    return rows;
+  }
 
+  function dataUrlFromBase64(b64, mimeType) {
+    return "data:" + (mimeType || "image/png") + ";base64," + b64;
+  }
+
+  function loadImageFromDataUrl(dataUrl) {
+    return new Promise(function (resolve, reject) {
+      const img = new Image();
+      img.onload = function () {
+        resolve(img);
+      };
+      img.onerror = function () {
+        reject(new Error("Could not load image"));
+      };
+      img.src = dataUrl;
+    });
+  }
+
+  async function compressDataUrl(dataUrl, maxDim, quality) {
+    const img = await loadImageFromDataUrl(dataUrl);
+    return compressImage(img, maxDim || PHOTO_FOR_URL_MAX_DIM, quality || PHOTO_FOR_URL_QUALITY);
+  }
+
+  async function fetchDishImageFromGemini(dishName, lang) {
+    const name = String(dishName || "").trim();
+    if (name.length < 2) throw new Error("Dish name is required for AI photo.");
+    const payload = await postGeminiWorker({
+      action: "generateDishImage",
+      dishName: name,
+      lang: lang || "en"
+    });
+    if (!payload.imageBase64) throw new Error("No image returned from AI.");
+    const dataUrl = dataUrlFromBase64(payload.imageBase64, payload.mimeType);
+    return compressDataUrl(dataUrl, PHOTO_FOR_URL_MAX_DIM, PHOTO_FOR_URL_QUALITY);
+  }
+
+  async function fetchMenuItemsFromGeminiImage(dataUrl, lang, onProgress) {
+    const { mimeType, imageBase64 } = parseMenuImagePayload(dataUrl);
+    if (!imageBase64 || imageBase64.length < 100) throw new Error("empty image");
+    const rows = await postMenuProxy(
+      {
+        imageBase64: imageBase64,
+        mimeType: mimeType,
+        lang: lang || "en"
+      },
+      onProgress
+    );
+    const items = geminiProxyRowsToDraftItems(rows, lang);
+    if (!items.length) throw new Error("Menu proxy returned zero dishes.");
+    return items;
+  }
+
+  async function fetchMenuItemsFromGeminiText(ocrText, lang, onProgress) {
+    const text = String(ocrText || "").trim().slice(0, 45000);
+    if (text.length < 8) throw new Error("empty OCR text");
+    const rows = await postMenuProxy(
+      {
+        text: text,
+        lang: lang || "en"
+      },
+      onProgress
+    );
     const items = geminiProxyRowsToDraftItems(rows, lang);
     if (!items.length) throw new Error("Menu proxy returned zero dishes.");
     return items;
@@ -589,8 +695,8 @@
         items.push({
           id: uid(),
           category: "mains",
-          title: { [lang]: pending.title || "Untitled" },
-          description: { [lang]: pending.description || "" },
+          title: spreadDraftLang(pending.title || "Untitled"),
+          description: spreadDraftLang(pending.description || ""),
           price: pending.price != null ? pending.price : 0,
           currency: pending.currency || "€",
           tags: [],
@@ -1251,8 +1357,9 @@
     scan.appendChild(el("h3", { text: "Scan a menu photo" }));
     scan.appendChild(
       el("p", {
-        text:
-          "Snap or upload a photo of the printed menu. We'll extract the dishes automatically."
+        text: hasGeminiMenuProxy()
+          ? "Snap the menu — Google Gemini reads the photo and prefills name, summary and price for each dish."
+          : "Snap or upload a photo of the printed menu. We'll extract the dishes automatically."
       })
     );
     scan.appendChild(
@@ -1350,9 +1457,9 @@
       stepHeader(
         3,
         "Scan the menu",
-        GEMINI_MENU_URL && String(GEMINI_MENU_URL).trim()
-          ? "Upload a photo. We read it on-device, then optionally send the text to your server to tidy dishes."
-          : "Take or upload a photo. We'll OCR it and extract dishes."
+        hasGeminiMenuProxy()
+          ? "Take a photo of the menu. AI reads the image and prefills your dishes."
+          : "Take or upload a photo. We'll OCR it on-device and extract dishes."
       )
     );
 
@@ -1376,8 +1483,8 @@
     const dzHint = el("div", {
       class: "demo-dropzone__hint",
       text:
-        GEMINI_MENU_URL && String(GEMINI_MENU_URL).trim()
-          ? "When a menu URL is set, OCR runs in the browser first; your worker sends only text to the model (no photo upload to Gemini)."
+        hasGeminiMenuProxy()
+          ? "Tip: straight-on photo, good light, full menu in frame. Processing takes ~10–30 s."
           : "Tip: clean printed menus on light backgrounds work best. Avoid glare."
     });
     dropzone.appendChild(dzIcon);
@@ -1438,7 +1545,7 @@
         previewImg.src = dataUrl;
         previewBox.hidden = false;
         dropzone.classList.add("demo-dropzone--with-preview");
-        runOcr(dataUrl);
+        runMenuExtract(dataUrl);
       } catch (err) {
         GV.showToast("Couldn't read that photo. Try another one.");
       }
@@ -1470,6 +1577,7 @@
 
       const draft = loadDraft();
       draft.items = items;
+      draft.lang = I18N.get() || draft.lang || "en";
       saveDraft(draft);
 
       resultBox.innerHTML = "";
@@ -1496,60 +1604,56 @@
       resultBox.appendChild(row);
     }
 
-    async function runOcr(dataUrl) {
+    function setProgress(pct, label, busy) {
       progressBox.hidden = false;
+      progressBox.classList.toggle("demo-progress--busy", !!busy);
       resultBox.hidden = true;
-      progressBar.style.width = "5%";
+      progressBar.style.width = Math.min(100, Math.max(0, pct)) + "%";
+      progressLabel.textContent = label;
+    }
+
+    async function runMenuExtract(dataUrl) {
       const lang = I18N.get() || "en";
+      dropzone.style.pointerEvents = "none";
+      input.disabled = true;
+
+      function onAiProgress(pct) {
+        setProgress(pct, "Reading menu with AI…", true);
+      }
 
       try {
-        progressLabel.textContent = "Loading OCR engine (~10 MB, one time)…";
-        progressBar.style.width = "5%";
-
-        const Tesseract = await loadTesseract();
-        progressLabel.textContent = "Reading the menu…";
-        progressBar.style.width = "20%";
-
-        const result = await Tesseract.recognize(dataUrl, "eng+spa+por", {
-          logger: (m) => {
-            if (m.status === "recognizing text") {
-              const pct = Math.min(88, 20 + Math.round(m.progress * 68));
-              progressBar.style.width = pct + "%";
-              progressLabel.textContent =
-                "Reading the menu… " + Math.round(m.progress * 100) + "%";
-            }
-          }
-        });
-
-        const ocrText = (result && result.data && result.data.text) || "";
-        let items = [];
-
-        if (GEMINI_MENU_URL && String(GEMINI_MENU_URL).trim() && ocrText.trim().length >= 8) {
+        if (hasGeminiMenuProxy()) {
+          setProgress(8, "Uploading photo…", true);
+          let items = [];
           try {
-            progressLabel.textContent = "Organizing dishes with AI…";
-            progressBar.style.width = "92%";
-            items = await fetchMenuItemsFromGeminiText(ocrText, lang);
-          } catch (gErr) {
-            console.warn("[demo] Gemini text pass failed, using local rules.", gErr);
-            GV.showToast("AI tidy failed — using local rules on the OCR text.");
-            items = parseMenuText(ocrText);
+            items = await fetchMenuItemsFromGeminiImage(dataUrl, lang, onAiProgress);
+          } catch (imgErr) {
+            console.warn("[demo] Gemini image failed, trying OCR fallback.", imgErr);
+            GV.showToast(
+              (imgErr && imgErr.message) || "AI read failed — trying on-device OCR…"
+            );
+            items = await runOcrFallback(dataUrl, lang);
           }
-        } else {
-          items = parseMenuText(ocrText);
+          setProgress(100, "Done.", false);
+          applyExtractedItems(items);
+          return;
         }
 
-        progressBar.style.width = "100%";
-        progressLabel.textContent = "Done.";
+        const items = await runOcrFallback(dataUrl, lang);
+        setProgress(100, "Done.", false);
         applyExtractedItems(items);
       } catch (err) {
+        console.error("[demo] menu extract failed", err);
         progressBox.hidden = true;
+        progressBox.classList.remove("demo-progress--busy");
         resultBox.innerHTML = "";
         resultBox.hidden = false;
         resultBox.appendChild(
           el("p", {
             class: "demo-result__msg",
             text:
-              "Couldn't load the OCR engine (you may be offline). Add the items manually instead."
+              (err && err.message) ||
+              "Couldn't read this menu. Try a clearer photo or add items manually."
           })
         );
         const row = el("div", { class: "demo-actions" });
@@ -1562,7 +1666,44 @@
           })
         );
         resultBox.appendChild(row);
+      } finally {
+        dropzone.style.pointerEvents = "";
+        input.disabled = false;
       }
+    }
+
+    async function runOcrFallback(dataUrl, lang) {
+      setProgress(5, "Loading OCR engine (~10 MB, one time)…", false);
+
+      const Tesseract = await loadTesseract();
+      setProgress(20, "Reading the menu on device…", false);
+
+      const result = await Tesseract.recognize(dataUrl, "eng+spa+por", {
+        logger: (m) => {
+          if (m.status === "recognizing text") {
+            const pct = Math.min(88, 20 + Math.round(m.progress * 68));
+            setProgress(
+              pct,
+              "Reading the menu… " + Math.round(m.progress * 100) + "%",
+              false
+            );
+          }
+        }
+      });
+
+      const ocrText = (result && result.data && result.data.text) || "";
+      if (hasGeminiMenuProxy() && ocrText.trim().length >= 8) {
+        try {
+          setProgress(90, "Organizing dishes with AI…", true);
+          return await fetchMenuItemsFromGeminiText(ocrText, lang, function (p) {
+            setProgress(p, "Organizing dishes with AI…", true);
+          });
+        } catch (gErr) {
+          console.warn("[demo] Gemini text pass failed, using local rules.", gErr);
+          GV.showToast("AI tidy failed — using local rules on the OCR text.");
+        }
+      }
+      return parseMenuText(ocrText);
     }
   }
 
@@ -1597,11 +1738,10 @@
         type: "text",
         class: "demo-input demo-input--title",
         placeholder: "Dish name",
-        value: (item.title && item.title[lang]) || ""
+        value: resolveDraftLocalized(item.title, lang)
       });
       title.addEventListener("input", () => {
-        item.title = item.title || {};
-        item.title[lang] = title.value;
+        item.title = spreadDraftLang(title.value);
         saveDraft(draft);
       });
       fields.appendChild(title);
@@ -1611,10 +1751,9 @@
         rows: 2,
         placeholder: "Short description (e.g. ingredients, cooking style)"
       });
-      desc.value = (item.description && item.description[lang]) || "";
+      desc.value = resolveDraftLocalized(item.description, lang);
       desc.addEventListener("input", () => {
-        item.description = item.description || {};
-        item.description[lang] = desc.value;
+        item.description = spreadDraftLang(desc.value);
         saveDraft(draft);
       });
       fields.appendChild(desc);
@@ -1723,7 +1862,7 @@
         onClick: () => {
           if (
             !draft.items.length ||
-            draft.items.every((i) => !((i.title && i.title[lang]) || "").trim())
+            draft.items.every((i) => !resolveDraftLocalized(i.title, lang).trim())
           ) {
             GV.showToast("Add at least one dish title.");
             return;
@@ -1750,7 +1889,9 @@
       stepHeader(
         4,
         "Add a photo for each dish",
-        "Snap or upload one photo per dish. We'll polish it with a Pro filter."
+        hasGeminiMenuProxy()
+          ? "Upload a photo or create one with AI (Gemini). Pro filter optional."
+          : "Snap or upload one photo per dish. We'll polish it with a Pro filter."
       )
     );
 
@@ -1758,6 +1899,7 @@
     wrap.appendChild(grid);
 
     function renderTile(item, idx) {
+      const dishName = resolveDraftLocalized(item.title, lang) || "Untitled";
       const tile = el("div", { class: "demo-photo" });
       const previewWrap = el("div", { class: "demo-photo__preview" });
       if (item.photoUrl) {
@@ -1775,7 +1917,7 @@
 
       const title = el("h3", {
         class: "demo-photo__title",
-        text: (item.title && item.title[lang]) || "Untitled"
+        text: dishName
       });
       tile.appendChild(title);
 
@@ -1811,6 +1953,56 @@
       });
       fileLabel.appendChild(fileInput);
       actions.appendChild(fileLabel);
+
+      if (hasGeminiMenuProxy()) {
+        const aiBtn = el("button", {
+          type: "button",
+          class: "btn btn--ghost demo-photo__ai",
+          text: item.photoUrl ? "✨ Regenerate with AI" : "✨ Create photo with AI"
+        });
+        aiBtn.addEventListener("click", async function () {
+          if (dishName === "Untitled" || !dishName.trim()) {
+            GV.showToast("Add a dish name on the previous step first.");
+            return;
+          }
+          tile.classList.add("demo-photo--busy");
+          aiBtn.disabled = true;
+          fileLabel.style.pointerEvents = "none";
+          const prevLabel = aiBtn.textContent;
+          aiBtn.textContent = "Creating with AI…";
+          previewWrap.innerHTML = "";
+          previewWrap.appendChild(
+            el("div", {
+              class: "demo-photo__empty demo-photo__empty--ai",
+              text: "✨ Generating…"
+            })
+          );
+          try {
+            const dataUrl = await fetchDishImageFromGemini(dishName, lang);
+            item.photoUrl = dataUrl;
+            if (!item.photoFilter) item.photoFilter = "pro";
+            saveDraft(draft);
+            GV.showToast("AI photo ready for " + dishName);
+            renderStepPhotos();
+          } catch (err) {
+            console.warn("[demo] AI dish image failed:", err);
+            const msg = (err && err.message) || "";
+            if (/quota|429|billing/i.test(msg)) {
+              GV.showToast(
+                "AI photos need billing on your Google AI project (free tier has no image quota). Use Add photo for now."
+              );
+            } else {
+              GV.showToast(msg || "Could not create AI photo. Try upload instead.");
+            }
+            tile.classList.remove("demo-photo--busy");
+            aiBtn.disabled = false;
+            fileLabel.style.pointerEvents = "";
+            aiBtn.textContent = prevLabel;
+            renderStepPhotos();
+          }
+        });
+        actions.appendChild(aiBtn);
+      }
 
       if (item.photoUrl) {
         const filterToggle = el("button", {
